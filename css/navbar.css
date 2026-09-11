@@ -1,0 +1,1179 @@
+/* ============================================================
+   AIStudio — Shared Navbar / Dashboard Navigation
+   ============================================================
+   Used by:
+   - dashboard.php
+   - face-studio.php
+   - voice-studio.php
+   - live-studio.php
+
+   Handles:
+   - Shared page foundation
+   - Sidebar
+   - Navigation
+   - Sidebar user
+   - Upgrade card
+   - Mobile sidebar
+   - Overlay
+   - Topbar
+   - Breadcrumb
+   - Notifications
+   - Credits
+   - Topbar user
+   - Responsive navigation
+
+   Studio content styles remain in:
+   - studio.css
+   - voice.css
+   - live.css
+   ============================================================ */
+
+
+/* ============================================================
+   SHARED VARIABLES
+   ============================================================ */
+
+:root {
+    --navbar-bg: #09090c;
+    --navbar-surface: #0e0e13;
+    --navbar-surface-2: #111116;
+    --navbar-surface-3: #15151b;
+
+    --navbar-border: rgba(255, 255, 255, 0.07);
+    --navbar-border-soft: rgba(255, 255, 255, 0.055);
+
+    --navbar-text: #ffffff;
+    --navbar-text-soft: #e7e7ec;
+    --navbar-text-muted: #92929d;
+    --navbar-text-dim: #6f6f79;
+
+    --navbar-purple: #8b5cf6;
+    --navbar-purple-dark: #6d45dc;
+    --navbar-purple-light: #c4b5fd;
+
+    --navbar-purple-soft: rgba(139, 92, 246, 0.08);
+    --navbar-purple-softer: rgba(139, 92, 246, 0.055);
+    --navbar-purple-hover: rgba(139, 92, 246, 0.12);
+
+    --navbar-success: #22c55e;
+    --navbar-success-soft: rgba(34, 197, 94, 0.10);
+
+    --navbar-danger: #ef4444;
+    --navbar-danger-soft: rgba(239, 68, 68, 0.10);
+
+    --navbar-sidebar-width: 250px;
+    --navbar-topbar-height: 76px;
+
+    --navbar-radius-sm: 10px;
+    --navbar-radius-md: 14px;
+    --navbar-radius-lg: 18px;
+
+    --navbar-transition: 0.25s ease;
+}
+
+
+/* ============================================================
+   GLOBAL PAGE FOUNDATION
+   ============================================================ */
+
+html {
+    min-height: 100%;
+    background: var(--navbar-bg);
+}
+
+body.dashboard-page {
+    margin: 0;
+    min-height: 100vh;
+
+    background: var(--navbar-bg);
+    color: var(--navbar-text);
+
+    font-family: "Inter", sans-serif;
+
+    overflow-x: hidden;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body.dashboard-page *,
+body.dashboard-page *::before,
+body.dashboard-page *::after {
+    box-sizing: border-box;
+}
+
+
+/* ============================================================
+   SHARED PAGE LINKS
+   ============================================================ */
+
+.dashboard-page a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.dashboard-sidebar {
+    position: fixed;
+
+    top: 0;
+    left: 0;
+    bottom: 0;
+
+    width: var(--navbar-sidebar-width);
+
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--navbar-surface);
+
+    border-right: 1px solid var(--navbar-border);
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+
+    transition:
+        transform var(--navbar-transition),
+        box-shadow var(--navbar-transition);
+}
+
+.dashboard-sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 20px;
+}
+
+
+/* ============================================================
+   SIDEBAR TOP
+   ============================================================ */
+
+.sidebar-top {
+    min-height: var(--navbar-topbar-height);
+
+    padding: 0 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border-bottom: 1px solid var(--navbar-border);
+
+    flex-shrink: 0;
+}
+
+
+/* ============================================================
+   SIDEBAR BRAND
+   ============================================================ */
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    color: var(--navbar-text);
+    text-decoration: none;
+
+    font-size: 19px;
+    font-weight: 800;
+
+    line-height: 1;
+
+    white-space: nowrap;
+}
+
+.sidebar-brand:hover {
+    color: var(--navbar-text);
+}
+
+.sidebar-brand-icon {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 10px;
+
+    background: var(--navbar-purple);
+
+    color: #ffffff;
+
+    font-size: 17px;
+
+    box-shadow: 0 6px 18px rgba(139, 92, 246, 0.20);
+}
+
+
+/* ============================================================
+   SIDEBAR CLOSE
+   ============================================================ */
+
+.sidebar-close {
+    width: 36px;
+    height: 36px;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: var(--navbar-text-muted);
+
+    cursor: pointer;
+
+    transition:
+        background var(--navbar-transition),
+        color var(--navbar-transition);
+}
+
+.sidebar-close:hover {
+    background: var(--navbar-surface-3);
+    color: var(--navbar-text);
+}
+
+
+/* ============================================================
+   SIDEBAR NAVIGATION
+   ============================================================ */
+
+.sidebar-nav {
+    flex: 1;
+
+    padding: 20px 12px;
+
+    min-height: 0;
+}
+
+
+/* ============================================================
+   SECTION LABEL
+   ============================================================ */
+
+.sidebar-section-label {
+    padding: 0 12px 9px;
+
+    color: var(--navbar-text-dim);
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 0.12em;
+
+    text-transform: uppercase;
+}
+
+
+/* ============================================================
+   SIDEBAR LINKS
+   ============================================================ */
+
+.sidebar-link {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+    min-height: 44px;
+
+    gap: 12px;
+
+    margin-bottom: 4px;
+    padding: 0 12px;
+
+    border-radius: 10px;
+
+    color: var(--navbar-text-muted);
+
+    text-decoration: none;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    transition:
+        background var(--navbar-transition),
+        color var(--navbar-transition);
+}
+
+.sidebar-link i {
+    width: 20px;
+
+    flex-shrink: 0;
+
+    text-align: center;
+
+    font-size: 16px;
+
+    transition: color var(--navbar-transition);
+}
+
+.sidebar-link span {
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+.sidebar-link:hover {
+    background: var(--navbar-purple-soft);
+
+    color: var(--navbar-text);
+}
+
+.sidebar-link:hover i {
+    color: var(--navbar-purple-light);
+}
+
+
+/* ============================================================
+   ACTIVE PAGE
+   ============================================================ */
+
+.sidebar-link.active {
+    background: var(--navbar-purple-soft);
+
+    color: var(--navbar-purple-light);
+}
+
+.sidebar-link.active i {
+    color: var(--navbar-purple);
+}
+
+.sidebar-link.active::before {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+
+    width: 3px;
+
+    border-radius: 0 4px 4px 0;
+
+    background: var(--navbar-purple);
+}
+
+
+/* ============================================================
+   SIDEBAR UPGRADE
+   ============================================================ */
+
+.sidebar-upgrade {
+    margin: 0 12px 14px;
+    padding: 14px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 10px;
+
+    border: 1px solid var(--navbar-border);
+
+    border-radius: 14px;
+
+    background: var(--navbar-surface-2);
+
+    flex-shrink: 0;
+}
+
+.sidebar-upgrade-icon {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    background: var(--navbar-purple-soft);
+
+    color: var(--navbar-purple-light);
+
+    font-size: 14px;
+}
+
+.sidebar-upgrade-content {
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+}
+
+.sidebar-upgrade-content strong {
+    color: var(--navbar-text);
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.sidebar-upgrade-content span {
+    color: var(--navbar-text-dim);
+
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.sidebar-upgrade-btn {
+    min-height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    background: var(--navbar-purple);
+
+    color: #ffffff;
+
+    text-decoration: none;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    transition:
+        background var(--navbar-transition),
+        transform var(--navbar-transition);
+}
+
+.sidebar-upgrade-btn:hover {
+    background: var(--navbar-purple-dark);
+
+    color: #ffffff;
+
+    transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   SIDEBAR USER
+   ============================================================ */
+
+.sidebar-user {
+    width: calc(100% - 24px);
+
+    min-width: 0;
+
+    margin: 0 12px 15px;
+    padding: 11px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    border: 1px solid var(--navbar-border);
+
+    border-radius: 12px;
+
+    background: var(--navbar-surface-2);
+
+    color: var(--navbar-text);
+
+    text-align: left;
+
+    cursor: pointer;
+
+    flex-shrink: 0;
+
+    transition:
+        background var(--navbar-transition),
+        border-color var(--navbar-transition);
+}
+
+.sidebar-user:hover {
+    background: var(--navbar-surface-3);
+
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+.sidebar-user-avatar {
+    width: 34px;
+    height: 34px;
+
+    flex: 0 0 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--navbar-purple);
+
+    color: #ffffff;
+
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.sidebar-user-info {
+    min-width: 0;
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-user-info strong {
+    overflow: hidden;
+
+    color: var(--navbar-text);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-user-info span {
+    margin-top: 2px;
+
+    overflow: hidden;
+
+    color: var(--navbar-text-dim);
+
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-user > i {
+    flex-shrink: 0;
+
+    color: var(--navbar-text-dim);
+
+    font-size: 13px;
+}
+
+
+/* ============================================================
+   SIDEBAR OVERLAY
+   ============================================================ */
+
+.sidebar-overlay {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 999;
+
+    background: rgba(0, 0, 0, 0.68);
+
+    opacity: 0;
+    visibility: hidden;
+
+    pointer-events: none;
+
+    transition:
+        opacity var(--navbar-transition),
+        visibility var(--navbar-transition);
+}
+
+.sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+
+    pointer-events: auto;
+}
+
+
+/* ============================================================
+   MAIN WRAPPER
+   ============================================================ */
+
+.dashboard-wrapper {
+    min-height: 100vh;
+
+    margin-left: var(--navbar-sidebar-width);
+
+    background: var(--navbar-bg);
+
+    transition: margin-left var(--navbar-transition);
+}
+
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+
+.dashboard-topbar {
+    position: sticky;
+
+    top: 0;
+
+    z-index: 900;
+
+    min-height: var(--navbar-topbar-height);
+
+    padding: 0 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    background: rgba(9, 9, 12, 0.92);
+
+    border-bottom: 1px solid var(--navbar-border);
+
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+
+/* ============================================================
+   TOPBAR LEFT
+   ============================================================ */
+
+.topbar-left {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+}
+
+
+/* ============================================================
+   MOBILE MENU BUTTON
+   ============================================================ */
+
+.mobile-menu-btn {
+    width: 40px;
+    height: 40px;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 1px solid var(--navbar-border);
+
+    border-radius: 10px;
+
+    background: var(--navbar-surface);
+
+    color: var(--navbar-text);
+
+    cursor: pointer;
+
+    transition:
+        background var(--navbar-transition),
+        border-color var(--navbar-transition),
+        color var(--navbar-transition);
+}
+
+.mobile-menu-btn:hover {
+    background: var(--navbar-surface-3);
+
+    border-color: rgba(255, 255, 255, 0.12);
+
+    color: var(--navbar-text);
+}
+
+
+/* ============================================================
+   BREADCRUMB
+   ============================================================ */
+
+.dashboard-breadcrumb {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    color: var(--navbar-text-muted);
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.dashboard-breadcrumb a {
+    color: var(--navbar-text-muted);
+
+    text-decoration: none;
+
+    transition: color var(--navbar-transition);
+}
+
+.dashboard-breadcrumb a:hover {
+    color: var(--navbar-text);
+}
+
+.dashboard-breadcrumb i {
+    flex-shrink: 0;
+
+    color: var(--navbar-text-dim);
+
+    font-size: 10px;
+}
+
+.dashboard-breadcrumb span {
+    overflow: hidden;
+
+    color: var(--navbar-text);
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   TOPBAR RIGHT
+   ============================================================ */
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    flex-shrink: 0;
+}
+
+
+/* ============================================================
+   SYSTEM STATUS
+   ============================================================ */
+
+.system-status {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    color: var(--navbar-text-muted);
+
+    font-size: 11px;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: var(--navbar-success);
+
+    box-shadow:
+        0 0 0 4px var(--navbar-success-soft);
+}
+
+
+/* ============================================================
+   TOPBAR ICON
+   ============================================================ */
+
+.topbar-icon-btn {
+    position: relative;
+
+    width: 40px;
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 1px solid var(--navbar-border);
+
+    border-radius: 10px;
+
+    background: var(--navbar-surface);
+
+    color: var(--navbar-text-muted);
+
+    cursor: pointer;
+
+    transition:
+        background var(--navbar-transition),
+        color var(--navbar-transition),
+        border-color var(--navbar-transition);
+}
+
+.topbar-icon-btn:hover {
+    background: var(--navbar-surface-3);
+
+    color: var(--navbar-text);
+
+    border-color: rgba(255, 255, 255, 0.11);
+}
+
+
+/* ============================================================
+   NOTIFICATION BADGE
+   ============================================================ */
+
+.notification-badge {
+    position: absolute;
+
+    top: 4px;
+    right: 4px;
+
+    min-width: 15px;
+    height: 15px;
+
+    padding: 0 4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 20px;
+
+    background: var(--navbar-danger);
+
+    color: #ffffff;
+
+    font-size: 8px;
+    font-weight: 800;
+
+    line-height: 1;
+}
+
+
+/* ============================================================
+   TOPBAR CREDITS
+   ============================================================ */
+
+.topbar-credits {
+    min-height: 40px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 0 12px;
+
+    border: 1px solid var(--navbar-border);
+
+    border-radius: 10px;
+
+    background: var(--navbar-surface);
+
+    color: var(--navbar-text);
+
+    text-decoration: none;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    transition:
+        background var(--navbar-transition),
+        border-color var(--navbar-transition),
+        color var(--navbar-transition);
+}
+
+.topbar-credits:hover {
+    background: var(--navbar-surface-3);
+
+    color: var(--navbar-text);
+
+    border-color: rgba(255, 255, 255, 0.11);
+}
+
+.topbar-credits i {
+    color: var(--navbar-purple-light);
+}
+
+.topbar-credits small {
+    color: var(--navbar-text-muted);
+
+    font-size: 10px;
+    font-weight: 500;
+}
+
+
+/* ============================================================
+   TOPBAR USER
+   ============================================================ */
+
+.topbar-user {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+
+    color: var(--navbar-text-muted);
+
+    cursor: pointer;
+}
+
+.topbar-user:hover {
+    color: var(--navbar-text);
+}
+
+.topbar-user-avatar {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--navbar-purple);
+
+    color: #ffffff;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.topbar-user > i {
+    font-size: 11px;
+}
+
+
+/* ============================================================
+   FOCUS STATES
+   ============================================================ */
+
+.sidebar-link:focus-visible,
+.sidebar-upgrade-btn:focus-visible,
+.sidebar-user:focus-visible,
+.mobile-menu-btn:focus-visible,
+.topbar-icon-btn:focus-visible,
+.topbar-credits:focus-visible,
+.topbar-user:focus-visible {
+    outline: 2px solid var(--navbar-purple);
+
+    outline-offset: 2px;
+}
+
+
+/* ============================================================
+   TABLET / MOBILE
+   ============================================================ */
+
+@media (max-width: 991.98px) {
+
+    .dashboard-sidebar {
+        transform: translateX(-100%);
+
+        box-shadow: none;
+    }
+
+    .dashboard-sidebar.show {
+        transform: translateX(0);
+
+        box-shadow: 15px 0 50px rgba(0, 0, 0, 0.35);
+    }
+
+    .sidebar-close {
+        display: flex;
+    }
+
+    .dashboard-wrapper {
+        margin-left: 0;
+    }
+
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    .dashboard-topbar {
+        padding: 0 20px;
+    }
+
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (min-width: 576px) and (max-width: 991.98px) {
+
+    .topbar-right {
+        gap: 10px;
+    }
+
+}
+
+
+/* ============================================================
+   SMALL PHONES
+   ============================================================ */
+
+@media (max-width: 575.98px) {
+
+    :root {
+        --navbar-topbar-height: 68px;
+    }
+
+    .dashboard-topbar {
+        min-height: 68px;
+
+        padding: 0 15px;
+    }
+
+    .topbar-left {
+        gap: 9px;
+    }
+
+    .mobile-menu-btn {
+        width: 38px;
+        height: 38px;
+    }
+
+    .dashboard-breadcrumb {
+        gap: 6px;
+
+        font-size: 11px;
+    }
+
+    .topbar-right {
+        gap: 6px;
+    }
+
+    .system-status {
+        display: none;
+    }
+
+    .topbar-icon-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .topbar-credits {
+        min-height: 36px;
+
+        padding: 0 9px;
+
+        font-size: 11px;
+    }
+
+    .topbar-credits small {
+        display: none;
+    }
+
+    .topbar-user-avatar {
+        width: 34px;
+        height: 34px;
+    }
+
+    .topbar-user > i {
+        display: none;
+    }
+
+}
+
+
+/* ============================================================
+   VERY SMALL PHONES
+   ============================================================ */
+
+@media (max-width: 380px) {
+
+    .dashboard-breadcrumb a,
+    .dashboard-breadcrumb i {
+        display: none;
+    }
+
+    .topbar-credits {
+        padding: 0 8px;
+    }
+
+    .topbar-credits span {
+        font-size: 10px;
+    }
+
+}
+
+
+/* ============================================================
+   TOUCH DEVICES
+   ============================================================ */
+
+@media (hover: none) and (pointer: coarse) {
+
+    .sidebar-link {
+        min-height: 46px;
+    }
+
+    .mobile-menu-btn,
+    .topbar-icon-btn {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+}
+
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .dashboard-sidebar,
+    .dashboard-wrapper,
+    .sidebar-overlay,
+    .sidebar-link,
+    .sidebar-upgrade-btn,
+    .sidebar-user,
+    .mobile-menu-btn,
+    .topbar-icon-btn,
+    .topbar-credits,
+    .topbar-user {
+        transition: none;
+    }
+
+}

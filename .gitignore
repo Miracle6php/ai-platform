@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*.log
+uploads/
+storage/
+temp/
+tmp/
+__pycache__/
+*.pyc
+node_modules/
