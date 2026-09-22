@@ -214,11 +214,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let cloneObjectUrl = null;
 
-    let processingTimer = null;
-
     let processingValue = 0;
 
-    let resultObjectUrl = null;
+    let currentCloneReferenceId = null;
+
+    let indeterminateTimer = null;
 
 
     /* =========================================================
@@ -549,12 +549,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateHeaderCredits() {
 
-        if (!headerCredits) {
-            return;
-        }
-
-        headerCredits.textContent =
-            "0 credits";
+        // Header already renders the real server-side balance via PHP
+        // on page load, so this no longer zeroes it out — kept only as
+        // a hook, actual updates happen in handleJobCompleted().
 
     }
 
@@ -1054,7 +1051,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       VOICE LIBRARY
+       VOICE LIBRARY — selection
        ========================================================= */
 
     voiceCards.forEach(
@@ -1118,12 +1115,105 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
+       VOICE LIBRARY — preview playback
+       ========================================================= */
+
+    // One shared <audio> element reused for every preview, so starting
+    // a new preview automatically stops whatever was playing before.
+    const voicePreviewAudio = new Audio();
+    let currentPreviewButton = null;
+
+    function setPlayIcon(playButton, state) {
+        // state: "idle" | "loading" | "playing"
+        if (!playButton) return;
+
+        playButton.dataset.state = state;
+
+        const icon = playButton.querySelector("i");
+        if (!icon) return;
+
+        icon.className =
+            state === "playing" ? "bi bi-pause-fill" :
+            state === "loading" ? "bi bi-hourglass-split" :
+            "bi bi-play-fill";
+    }
+
+    function stopCurrentPreview() {
+        voicePreviewAudio.pause();
+        voicePreviewAudio.currentTime = 0;
+
+        if (currentPreviewButton) {
+            setPlayIcon(currentPreviewButton, "idle");
+            currentPreviewButton = null;
+        }
+    }
+
+    function playPreview(card, playButton) {
+        const previewUrl = card.dataset.previewUrl;
+
+        if (!previewUrl || previewUrl.indexOf("REPLACE_WITH") === 0) {
+            showToast("Preview not available for this voice yet.");
+            return;
+        }
+
+        // Clicking the currently-playing voice's play button again = stop.
+        if (currentPreviewButton === playButton && !voicePreviewAudio.paused) {
+            stopCurrentPreview();
+            return;
+        }
+
+        stopCurrentPreview();
+
+        currentPreviewButton = playButton;
+        setPlayIcon(playButton, "loading");
+
+        voicePreviewAudio.src = previewUrl;
+        voicePreviewAudio.play()
+            .then(function () {
+                setPlayIcon(playButton, "playing");
+            })
+            .catch(function () {
+                setPlayIcon(playButton, "idle");
+                currentPreviewButton = null;
+                showToast("Could not play this preview.");
+            });
+    }
+
+    voicePreviewAudio.addEventListener("ended", stopCurrentPreview);
+    voicePreviewAudio.addEventListener("error", stopCurrentPreview);
+
+    voiceCards.forEach(function (card) {
+
+        const playButton = card.querySelector(".voice-card-play");
+        if (!playButton) return;
+
+        playButton.addEventListener("click", function (event) {
+
+            // Don't also trigger the card's own selection handler —
+            // preview and select are separate actions.
+            event.stopPropagation();
+
+            playPreview(card, playButton);
+
+        });
+
+    });
+
+    window.addEventListener("beforeunload", stopCurrentPreview);
+
+
+    /* =========================================================
        CLONE CLEANUP
        ========================================================= */
 
     function clearClone() {
 
         selectedClone = null;
+
+        // A new sample means any previously uploaded reference on the
+        // server is stale — force a fresh upload via
+        // ensureCloneReference() next time.
+        currentCloneReferenceId = null;
 
         clearCloneUrl();
 
@@ -1475,328 +1565,188 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       PROCESSING
+       PROCESSING (synchronous API call — no polling)
        ========================================================= */
 
-    function stopProcessing() {
-
-        if (processingTimer) {
-
-            clearInterval(
-                processingTimer
-            );
-
-            processingTimer = null;
-
-        }
-
-    }
-
-
-    function updateProcessing(value) {
+    function updateProcessing(value, message) {
 
         processingValue =
-            Math.min(
-                100,
-                Math.max(0, value)
-            );
-
+            Math.min(100, Math.max(0, value));
 
         if (processingProgress) {
-
-            processingProgress.style.width =
-                processingValue +
-                "%";
-
+            processingProgress.style.width = processingValue + "%";
         }
 
-
         if (processingPercentage) {
+            processingPercentage.textContent = processingValue + "%";
+        }
 
-            processingPercentage.textContent =
-                processingValue +
-                "%";
-
+        if (message && processingStatus) {
+            processingStatus.textContent = message;
         }
 
     }
 
 
-    function startDemoProcessing() {
+    function startIndeterminateProgress() {
 
-        stopProcessing();
+        // No real progress updates come back from a single blocking
+        // fetch() — this fakes gradual movement so the bar doesn't sit
+        // frozen at 0% for however long conversion takes. It never
+        // claims 100% until the real response lands.
+        stopIndeterminateProgress();
 
+        let value = 5;
+        updateProcessing(value, "Uploading and converting...");
+
+        indeterminateTimer = setInterval(function () {
+            value = Math.min(90, value + Math.random() * 4);
+            updateProcessing(Math.round(value));
+        }, 800);
+
+    }
+
+
+    function stopIndeterminateProgress() {
+        if (indeterminateTimer) {
+            clearInterval(indeterminateTimer);
+            indeterminateTimer = null;
+        }
+    }
+
+
+    function resetToIdleAfterError() {
+        stopIndeterminateProgress();
+        if (processingPanel) processingPanel.classList.add("d-none");
+        if (generateButton) generateButton.disabled = false;
+        if (generateLoading) generateLoading.classList.add("d-none");
+        if (generateNormal) generateNormal.classList.remove("d-none");
+    }
+
+
+    async function ensureCloneReference() {
+
+        if (currentCloneReferenceId) {
+            return currentCloneReferenceId;
+        }
+
+        const formData = new FormData();
+        formData.append("clone_audio", selectedClone);
+
+        const response = await fetch("backend/voice/clone.php", {
+            method: "POST",
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Could not upload voice sample.");
+        }
+
+        currentCloneReferenceId = data.reference_id;
+        return currentCloneReferenceId;
+
+    }
+
+
+    async function buildSubmitFormData() {
+
+        const formData = new FormData();
+
+        formData.append("source_audio", selectedAudio);
+        formData.append("voice_mode", selectedVoiceMode);
+
+        if (selectedVoiceMode === "library") {
+            formData.append("voice_id", selectedVoice);
+        } else {
+            const referenceId = await ensureCloneReference();
+            formData.append("clone_reference_id", referenceId);
+        }
+
+        formData.append("quality", qualitySelect ? qualitySelect.value : "standard");
+        formData.append("pitch", pitchSelect ? pitchSelect.value : "natural");
+        formData.append("stability", stabilitySelect ? stabilitySelect.value : "balanced");
+
+        return formData;
+
+    }
+
+
+    async function submitVoiceJob() {
 
         processingValue = 0;
-
         updateProcessing(0);
 
+        if (processingPanel) processingPanel.classList.remove("d-none");
+        if (resultPanel) resultPanel.classList.add("d-none");
+        if (generateButton) generateButton.disabled = true;
+        if (generateNormal) generateNormal.classList.add("d-none");
+        if (generateLoading) generateLoading.classList.remove("d-none");
+        if (processingTitle) processingTitle.textContent = "Transforming your voice";
+        if (processingMessage) processingMessage.textContent = "This can take a moment — converting your audio...";
 
-        if (processingPanel) {
+        startIndeterminateProgress();
 
-            processingPanel.classList.remove(
-                "d-none"
-            );
+        try {
 
-        }
+            const formData = await buildSubmitFormData();
 
+            const response = await fetch("backend/voice/transform.php?action=submit", {
+                method: "POST",
+                body: formData,
+            });
 
-        if (resultPanel) {
+            const data = await response.json();
 
-            resultPanel.classList.add(
-                "d-none"
-            );
+            if (!response.ok) {
+                throw new Error(data.error || "Could not complete transformation.");
+            }
 
-        }
+            stopIndeterminateProgress();
+            updateProcessing(100, "Voice transformation completed.");
+            handleJobCompleted(data);
 
+        } catch (err) {
 
-        if (generateButton) {
-
-            generateButton.disabled =
-                true;
-
-        }
-
-
-        if (generateNormal) {
-
-            generateNormal.classList.add(
-                "d-none"
-            );
-
-        }
-
-
-        if (generateLoading) {
-
-            generateLoading.classList.remove(
-                "d-none"
-            );
+            showToast(err.message || "Something went wrong during transformation.");
+            resetToIdleAfterError();
 
         }
-
-
-        if (processingTitle) {
-
-            processingTitle.textContent =
-                "Transforming your voice";
-
-        }
-
-
-        if (processingMessage) {
-
-            processingMessage.textContent =
-                "AI is preparing your transformed voice...";
-
-        }
-
-
-        if (processingStatus) {
-
-            processingStatus.textContent =
-                "Starting AI processing...";
-
-        }
-
-
-        processingTimer =
-            setInterval(
-                function () {
-
-                    processingValue +=
-                        Math.floor(
-                            Math.random() * 8
-                        ) + 4;
-
-
-                    if (processingValue >= 100) {
-
-                        processingValue = 100;
-
-                        updateProcessing(
-                            processingValue
-                        );
-
-                        stopProcessing();
-
-                        finishDemoProcessing();
-
-                        return;
-
-                    }
-
-
-                    updateProcessing(
-                        processingValue
-                    );
-
-
-                    if (
-                        processingValue < 30
-                    ) {
-
-                        if (processingStatus) {
-
-                            processingStatus.textContent =
-                                "Uploading audio...";
-
-                        }
-
-                    } else if (
-                        processingValue < 65
-                    ) {
-
-                        if (processingStatus) {
-
-                            processingStatus.textContent =
-                                "AI is transforming the voice...";
-
-                        }
-
-                    } else if (
-                        processingValue < 90
-                    ) {
-
-                        if (processingStatus) {
-
-                            processingStatus.textContent =
-                                "Optimizing the final result...";
-
-                        }
-
-                    } else {
-
-                        if (processingStatus) {
-
-                            processingStatus.textContent =
-                                "Finishing transformation...";
-
-                        }
-
-                    }
-
-                },
-                500
-            );
 
     }
 
 
     /* =========================================================
-       DEMO RESULT
+       RESULT
        ========================================================= */
 
-    function finishDemoProcessing() {
+    function handleJobCompleted(data) {
 
-        if (processingTitle) {
+        if (processingTitle) processingTitle.textContent = "Transformation complete";
+        if (processingMessage) processingMessage.textContent = "Your transformed voice is ready.";
+        if (generateLoading) generateLoading.classList.add("d-none");
+        if (generateNormal) generateNormal.classList.remove("d-none");
 
-            processingTitle.textContent =
-                "Transformation complete";
-
-        }
-
-
-        if (processingMessage) {
-
-            processingMessage.textContent =
-                "Your transformed voice is ready.";
-
-        }
-
-
-        if (processingStatus) {
-
-            processingStatus.textContent =
-                "Voice transformation completed.";
-
-        }
-
-
-        if (generateLoading) {
-
-            generateLoading.classList.add(
-                "d-none"
-            );
-
-        }
-
-
-        if (generateNormal) {
-
-            generateNormal.classList.remove(
-                "d-none"
-            );
-
-        }
-
-
-        /*
-         * Frontend demo:
-         * The real API result will replace this
-         * object URL later.
-         */
-        if (
-            resultAudio &&
-            selectedAudio
-        ) {
-
-            if (resultObjectUrl) {
-
-                URL.revokeObjectURL(
-                    resultObjectUrl
-                );
-
-                resultObjectUrl = null;
-
-            }
-
-
-            resultObjectUrl =
-                URL.createObjectURL(
-                    selectedAudio
-                );
-
-
-            resultAudio.src =
-                resultObjectUrl;
-
+        if (resultAudio && data.result_url) {
+            resultAudio.src = data.result_url;
             resultAudio.load();
-
         }
 
+        if (typeof data.credits_balance === "number") {
+            const creditsText = Math.floor(data.credits_balance) + "";
+            if (headerCredits) headerCredits.textContent = creditsText;
 
-        setTimeout(
-            function () {
+            const topbarCreditsValue = document.querySelector("#topbarCredits span");
+            if (topbarCreditsValue) topbarCreditsValue.textContent = creditsText;
+        }
 
-                if (processingPanel) {
-
-                    processingPanel.classList.add(
-                        "d-none"
-                    );
-
-                }
-
-
-                if (resultPanel) {
-
-                    resultPanel.classList.remove(
-                        "d-none"
-                    );
-
-                }
-
-
-                showToast(
-                    "Voice transformation complete."
-                );
-
-
-                updateValidation();
-
-            },
-            500
-        );
+        setTimeout(function () {
+            if (processingPanel) processingPanel.classList.add("d-none");
+            if (resultPanel) resultPanel.classList.remove("d-none");
+            showToast("Voice transformation complete.");
+            updateValidation();
+        }, 500);
 
     }
 
@@ -1811,42 +1761,23 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                if (
-                    !selectedAudio
-                ) {
-
-                    showToast(
-                        "Upload an MP3 audio file first."
-                    );
-
+                if (!selectedAudio) {
+                    showToast("Upload an MP3 audio file first.");
                     return;
-
                 }
-
 
                 const hasVoice =
                     selectedVoiceMode === "library"
                         ? !!selectedVoice
                         : !!selectedClone;
 
-
                 if (!hasVoice) {
-
-                    showToast(
-                        "Choose a voice model first."
-                    );
-
+                    showToast("Choose a voice model first.");
                     return;
-
                 }
 
-
-                showToast(
-                    "Preparing voice transformation..."
-                );
-
-
-                startDemoProcessing();
+                showToast("Starting voice transformation...");
+                submitVoiceJob();
 
             }
         );
@@ -1864,7 +1795,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                if (!resultObjectUrl) {
+                if (!resultAudio || !resultAudio.src) {
 
                     showToast(
                         "No result is available yet."
@@ -1880,7 +1811,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
                 link.href =
-                    resultObjectUrl;
+                    resultAudio.src;
 
                 link.download =
                     "aistudio-voice-result.mp3";
@@ -1936,7 +1867,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                stopProcessing();
+                stopIndeterminateProgress();
 
                 clearAudio();
 
@@ -1969,17 +1900,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
 
                     resultAudio.load();
-
-                }
-
-
-                if (resultObjectUrl) {
-
-                    URL.revokeObjectURL(
-                        resultObjectUrl
-                    );
-
-                    resultObjectUrl = null;
 
                 }
 

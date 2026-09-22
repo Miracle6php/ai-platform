@@ -850,6 +850,58 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================
+       PAYMENT RESULT
+       Shown after returning from Paystack via
+       backend/payments/verify-payment.php,
+       which redirects to dashboard.php?payment=success|failed
+       and sets data-payment-status / data-payment-message
+       on <body> (see dashboard.php).
+    ========================================= */
+
+    function showPaymentResult() {
+
+        const paymentStatus =
+            body.dataset.paymentStatus;
+
+        const paymentMessage =
+            body.dataset.paymentMessage;
+
+        if (!paymentStatus || !paymentMessage) {
+            return;
+        }
+
+        showToast(paymentMessage);
+
+        if (paymentStatus === "success") {
+            updateCredits();
+        }
+
+        /*
+         * Clean the ?payment=...&reference=... params out of the
+         * URL so refreshing the page doesn't show the toast again.
+         */
+
+        if (window.history.replaceState) {
+
+            const url =
+                new URL(window.location.href);
+
+            url.searchParams.delete("payment");
+            url.searchParams.delete("reference");
+            url.searchParams.delete("trxref");
+
+            window.history.replaceState(
+                {},
+                document.title,
+                url.toString()
+            );
+
+        }
+
+    }
+
+
+    /* =========================================
        FORMAT NUMBERS
     ========================================= */
 
@@ -901,5 +953,6 @@ document.addEventListener("DOMContentLoaded", function () {
     ========================================= */
 
     loadDashboardData();
+    showPaymentResult();
 
 });

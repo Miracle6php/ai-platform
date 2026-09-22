@@ -1,0 +1,104 @@
+/* =========================================
+   Buy Credits page
+   Reuses .pricing-card / .credits-pill etc.
+   already defined in style.css & dashboard.css
+========================================= */
+
+.plans-page {
+    min-height: 100vh;
+    padding: 24px;
+}
+
+.plans-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1100px;
+    margin: 0 auto 40px;
+}
+
+.plans-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.plans-container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.plans-alert {
+    max-width: 600px;
+    margin: 24px auto 0;
+    padding: 14px 18px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.plans-alert-error {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.25);
+}
+
+.plans-empty {
+    text-align: center;
+    padding: 60px 20px;
+    opacity: 0.7;
+}
+
+.plans-empty i {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.plan-select-btn:disabled,
+#customAmountBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Custom amount card */
+
+.custom-amount-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+}
+
+.custom-amount-prefix {
+    font-weight: 700;
+    opacity: 0.7;
+}
+
+.custom-amount-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: inherit;
+    width: 100%;
+}
+
+.custom-amount-input::-webkit-outer-spin-button,
+.custom-amount-input::-webkit-inner-spin-button {
+    margin-left: 6px;
+}
+
+.custom-amount-hint {
+    min-height: 20px;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-bottom: 14px;
+}

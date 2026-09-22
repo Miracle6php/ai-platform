@@ -1,183 +1,127 @@
-document.addEventListener("DOMContentLoaded", function () {
+// =========================================================
+// AISTUDIO — BASE SITE JS
+// If you already have a js/main.js on your server, merge this
+// in rather than overwriting it — this only covers the navbar
+// scroll state and the footer year that the markup expects.
+// =========================================================
 
-    /* =========================================
-       NAVBAR SCROLL EFFECT
-    ========================================= */
+(function () {
+    "use strict";
 
-    const navbar = document.querySelector(".navbar");
+    // Navbar background on scroll
+    var navbar = document.getElementById("mainNavbar");
 
-    function handleNavbarScroll() {
+    function updateNavbar() {
         if (!navbar) return;
 
-        if (window.scrollY > 30) {
+        if (window.scrollY > 12) {
             navbar.classList.add("scrolled");
         } else {
             navbar.classList.remove("scrolled");
         }
     }
 
-    window.addEventListener("scroll", handleNavbarScroll);
-    handleNavbarScroll();
+    window.addEventListener("scroll", updateNavbar, { passive: true });
+    updateNavbar();
 
+    // Footer year
+    document.querySelectorAll("[data-current-year]").forEach(function (el) {
+        el.textContent = new Date().getFullYear();
+    });
 
-    /* =========================================
-       SMOOTH MOBILE NAVBAR
-    ========================================= */
+    // Hero "AI Transform" toggle — crossfades the camera-preview
+    // between the real-camera layer and the AI layer instead of
+    // an abrupt show/hide.
+    var aiToggle = document.getElementById("aiTransformToggle");
+    var cameraTag = document.getElementById("cameraTag");
+    var aiLayer = document.querySelector('.camera-layer[data-layer="ai"]');
+    var AUTO_CYCLE_MS = 3500;
+    var autoTimer = null;
 
-    const navbarCollapse = document.querySelector(".navbar-collapse");
-    const navbarToggler = document.querySelector(".navbar-toggler");
+    function setAiPreview(showAI) {
+        aiToggle.classList.toggle("active", showAI);
+        aiToggle.setAttribute("aria-pressed", showAI ? "true" : "false");
+        aiLayer.classList.toggle("is-active", showAI);
 
-    if (navbarCollapse && navbarToggler) {
+        if (cameraTag) {
+            cameraTag.textContent = showAI ? "AI · Live Transform" : "Real Camera";
+        }
+    }
 
-        // Smooth opening
-        navbarCollapse.addEventListener("show.bs.collapse", function () {
-            navbarCollapse.style.maxHeight = "0px";
-            navbarCollapse.style.opacity = "0";
-            navbarCollapse.style.overflow = "hidden";
+    function prefersReducedMotion() {
+        return (
+            window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
+    }
 
-            requestAnimationFrame(() => {
-                navbarCollapse.style.transition =
-                    "max-height 0.4s ease, opacity 0.3s ease";
+    function startAutoCycle() {
+        stopAutoCycle();
 
-                navbarCollapse.style.maxHeight =
-                    navbarCollapse.scrollHeight + "px";
+        if (prefersReducedMotion()) return;
 
-                navbarCollapse.style.opacity = "1";
-            });
+        autoTimer = setInterval(function () {
+            setAiPreview(!aiLayer.classList.contains("is-active"));
+        }, AUTO_CYCLE_MS);
+    }
+
+    function stopAutoCycle() {
+        if (autoTimer) {
+            clearInterval(autoTimer);
+            autoTimer = null;
+        }
+    }
+
+    if (aiToggle && aiLayer) {
+        // Manual click still works — it just also resets the
+        // auto-cycle timer so it doesn't flip again right away.
+        aiToggle.addEventListener("click", function () {
+            setAiPreview(!aiLayer.classList.contains("is-active"));
+            startAutoCycle();
         });
 
-        // Smooth closing
-        navbarCollapse.addEventListener("hide.bs.collapse", function () {
-
-            navbarCollapse.style.maxHeight =
-                navbarCollapse.scrollHeight + "px";
-
-            navbarCollapse.style.opacity = "1";
-
-            requestAnimationFrame(() => {
-                navbarCollapse.style.transition =
-                    "max-height 0.35s ease, opacity 0.25s ease";
-
-                navbarCollapse.style.maxHeight = "0px";
-                navbarCollapse.style.opacity = "0";
-            });
+        // Pause the cycle while the tab isn't visible, resume when it is.
+        document.addEventListener("visibilitychange", function () {
+            if (document.hidden) {
+                stopAutoCycle();
+            } else {
+                startAutoCycle();
+            }
         });
 
-        // Reset styles after opening
-        navbarCollapse.addEventListener("shown.bs.collapse", function () {
-            navbarCollapse.style.maxHeight = "none";
-            navbarCollapse.style.overflow = "visible";
-        });
-
-        // Reset styles after closing
-        navbarCollapse.addEventListener("hidden.bs.collapse", function () {
-            navbarCollapse.style.maxHeight = "";
-            navbarCollapse.style.opacity = "";
-            navbarCollapse.style.overflow = "";
-            navbarCollapse.style.transition = "";
-        });
+        startAutoCycle();
     }
 
 
-    /* =========================================
-       CLOSE NAVBAR WHEN LINK IS CLICKED
-    ========================================= */
+    // ---------------------------------------------------
+    // Scroll reveal — slides content up into view once as it
+    // enters the viewport (features, pricing cards, FAQ, etc).
+    // ---------------------------------------------------
 
-    const navLinks = document.querySelectorAll(
-        ".navbar-nav .nav-link, .navbar .btn"
-    );
+    var revealEls = document.querySelectorAll(".reveal");
 
-    navLinks.forEach(function (link) {
-
-        link.addEventListener("click", function () {
-
-            if (
-                navbarCollapse &&
-                navbarCollapse.classList.contains("show")
-            ) {
-                const bsCollapse =
-                    bootstrap.Collapse.getInstance(navbarCollapse) ||
-                    new bootstrap.Collapse(navbarCollapse, {
-                        toggle: false
-                    });
-
-                bsCollapse.hide();
-            }
-
+    if (!revealEls.length) {
+        // nothing to reveal
+    } else if (!("IntersectionObserver" in window)) {
+        // No IntersectionObserver support — just show everything.
+        revealEls.forEach(function (el) {
+            el.classList.add("is-visible");
         });
-
-    });
-
-
-    /* =========================================
-       SMOOTH SCROLLING
-    ========================================= */
-
-    document.querySelectorAll('a[href^="#"]').forEach(function (link) {
-
-        link.addEventListener("click", function (event) {
-
-            const targetId = this.getAttribute("href");
-
-            if (!targetId || targetId === "#") {
-                event.preventDefault();
-                return;
-            }
-
-            const target = document.querySelector(targetId);
-
-            if (target) {
-                event.preventDefault();
-
-                const navbarHeight =
-                    navbar ? navbar.offsetHeight : 0;
-
-                const targetPosition =
-                    target.getBoundingClientRect().top +
-                    window.pageYOffset -
-                    navbarHeight -
-                    15;
-
-                window.scrollTo({
-                    top: targetPosition,
-                    behavior: "smooth"
+    } else {
+        var revealObserver = new IntersectionObserver(
+            function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add("is-visible");
+                        revealObserver.unobserve(entry.target);
+                    }
                 });
-            }
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+        );
 
+        revealEls.forEach(function (el) {
+            revealObserver.observe(el);
         });
-
-    });
-
-
-    /* =========================================
-       CURRENT YEAR
-    ========================================= */
-
-    document.querySelectorAll("[data-current-year]").forEach(function (element) {
-        element.textContent = new Date().getFullYear();
-    });
-
-
-    /* =========================================
-       ESC KEY CLOSES MOBILE NAVBAR
-    ========================================= */
-
-    document.addEventListener("keydown", function (event) {
-
-        if (event.key === "Escape" && navbarCollapse) {
-
-            if (navbarCollapse.classList.contains("show")) {
-
-                const bsCollapse =
-                    bootstrap.Collapse.getInstance(navbarCollapse) ||
-                    new bootstrap.Collapse(navbarCollapse, {
-                        toggle: false
-                    });
-
-                bsCollapse.hide();
-            }
-        }
-
-    });
-
-});
+    }
+})();

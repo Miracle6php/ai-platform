@@ -30,7 +30,7 @@
     >
 
     <!-- Main CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 
 <body>
@@ -138,20 +138,22 @@
                 </h1>
 
                 <p class="hero-description">
-                    Turn your camera, voice and content into something
-                    extraordinary. Create real-time AI experiences and
-                    stream them directly to your audience.
+                    Create professional live streams directly from your
+                    browser. Stream as yourself or instantly switch into
+                    AI mode with real-time transformation — then
+                    broadcast to your audience or connect seamlessly
+                    with OBS.
                 </p>
 
                 <div class="hero-actions">
 
                     <a href="get-started.php" class="btn btn-primary-custom btn-lg">
-                        Start Creating
+                        Start Streaming
                         <i class="bi bi-arrow-right ms-2"></i>
                     </a>
 
-                    <a href="#how-it-works" class="btn btn-outline-custom btn-lg">
-                        See how it works
+                    <a href="#studios" class="btn btn-outline-custom btn-lg">
+                        Watch Demo
                         <i class="bi bi-play-circle ms-2"></i>
                     </a>
 
@@ -211,20 +213,44 @@
 
                             <div class="camera-preview">
 
-                                <div class="camera-person">
+                                <div class="camera-layer is-active" data-layer="real">
 
-                                    <div class="person-head"></div>
+                                    <img
+                                        src="media/ai-studio-hero.jpg"
+                                        alt="AI Studio creator at their desk, real camera feed"
+                                    >
 
-                                    <div class="person-body"></div>
+                                </div>
+
+                                <div class="camera-layer" data-layer="ai">
+
+                                    <img
+                                        src="media/ai-studio-transform.jpg"
+                                        alt="AI Studio creator, AI-transformed feed"
+                                    >
 
                                 </div>
 
                                 <div class="scan-line"></div>
 
-                                <div class="face-label">
-                                    <i class="bi bi-stars"></i>
-                                    AI TRANSFORM
+                                <span class="camera-tag" id="cameraTag">
+                                    Real Camera
+                                </span>
+
+                                <div class="chat-bubble">
+                                    <i class="bi bi-chat-dots-fill"></i>
+                                    Live chat · 32 new
                                 </div>
+
+                            </div>
+
+
+                            <div class="preview-meta-row">
+
+                                <span class="obs-tag">
+                                    <i class="bi bi-camera-reels"></i>
+                                    OBS Output · Active
+                                </span>
 
                             </div>
 
@@ -234,58 +260,37 @@
                                 <div class="control-group">
 
                                     <span class="control-label">
-                                        AI Mode
+                                        AI Transform
                                     </span>
 
-                                    <div class="ai-toggle active">
+                                    <button class="ai-toggle" id="aiTransformToggle" type="button" aria-pressed="false" aria-label="Toggle AI transform preview">
                                         <span></span>
-                                    </div>
+                                    </button>
 
                                 </div>
 
                                 <div class="control-group">
 
+                                    <strong id="viewerCount">
+                                        1,284
+                                    </strong>
+
                                     <span class="control-label">
-                                        Viewers
+                                        watching
                                     </span>
 
-                                    <strong id="viewerCount">
-                                        2,400
+                                </div>
+
+                                <div class="control-group">
+
+                                    <strong id="streamTimer">
+                                        00:12:47
                                     </strong>
 
                                 </div>
 
                             </div>
 
-                        </div>
-
-                    </div>
-
-                    <div class="floating-card floating-card-one">
-
-                        <div class="floating-icon">
-                            <i class="bi bi-magic"></i>
-                        </div>
-
-                        <div>
-                            <small>AI Transform</small>
-                            <strong>Active</strong>
-                        </div>
-
-                    </div>
-
-                    <div class="floating-card floating-card-two">
-
-                        <i class="bi bi-activity"></i>
-
-                        <div class="mini-wave">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
                         </div>
 
                     </div>
@@ -344,6 +349,115 @@
 
 
 <!-- =========================================
+     POWERED BY (NEW)
+========================================= -->
+
+<section class="section-padding section-dark" id="powered-by">
+
+    <div class="container">
+
+        <div class="section-heading mx-auto reveal">
+
+            <div class="section-eyebrow">THE TECH BEHIND IT</div>
+
+            <h2 class="section-title">
+                Built on proven AI,
+                <span>not experiments.</span>
+            </h2>
+
+            <p class="section-description">
+                We integrate industry-leading models instead of training
+                our own risky ones, so results stay consistent every
+                time you hit record.
+            </p>
+
+        </div>
+
+
+        <div class="row g-4 mt-4">
+
+            <div class="col-lg-6">
+
+                <div
+                    class="pricing-card reveal reveal-delay-1"
+                    style="background:radial-gradient(circle at 85% 15%, rgba(0,190,255,0.14), transparent 55%), #0c0c12; border-color:rgba(0,190,255,0.18);"
+                >
+
+                    <span class="pricing-label" style="color:#a6e9ff;background:rgba(0,190,255,0.14);padding:4px 10px;border-radius:999px;letter-spacing:0.05em;">
+                        VOICE ENGINE
+                    </span>
+
+                    <h3 style="margin:16px 0 10px;font-size:1.4rem;">
+                        ElevenLabs
+                    </h3>
+
+                    <p style="max-width:420px;">
+                        Industry-leading voice cloning and real-time
+                        conversion, powering every second of Voice
+                        Studio — from subtle pitch shifts to full
+                        voice swaps.
+                    </p>
+
+                    <a
+                        href="https://elevenlabs.io"
+                        target="_blank"
+                        rel="noopener"
+                        class="feature-link"
+                        style="margin-top:16px;display:inline-flex;"
+                    >
+                        Learn about ElevenLabs
+                        <i class="bi bi-arrow-up-right"></i>
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-lg-6">
+
+                <div
+                    class="pricing-card reveal reveal-delay-2"
+                    style="background:radial-gradient(circle at 15% 15%, rgba(124,92,255,0.16), transparent 55%), #0c0c12; border-color:rgba(124,92,255,0.2);"
+                >
+
+                    <span class="pricing-label" style="color:#c7bcff;background:rgba(124,92,255,0.16);padding:4px 10px;border-radius:999px;letter-spacing:0.05em;">
+                        VIDEO ENGINE
+                    </span>
+
+                    <h3 style="margin:16px 0 10px;font-size:1.4rem;">
+                        Lucy — Decart
+                    </h3>
+
+                    <p style="max-width:420px;">
+                        The real-time video transformation model
+                        behind Face Studio and Live Studio, built for
+                        frame-by-frame identity and scene changes.
+                    </p>
+
+                    <a
+                        href="https://decart.ai/lucy"
+                        target="_blank"
+                        rel="noopener"
+                        class="feature-link"
+                        style="margin-top:16px;display:inline-flex;"
+                    >
+                        Learn about Lucy
+                        <i class="bi bi-arrow-up-right"></i>
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================
      FEATURES
 ========================================= -->
 
@@ -351,7 +465,7 @@
 
     <div class="container">
 
-        <div class="section-heading text-center mx-auto">
+        <div class="section-heading text-center mx-auto reveal">
 
             <div class="section-eyebrow">
                 POWERFUL CREATOR TOOLS
@@ -376,7 +490,7 @@
 
             <div class="col-md-4">
 
-                <a href="face-studio.html" class="feature-card">
+                <a href="face-studio.html" class="feature-card reveal reveal-delay-1">
 
                     <div class="feature-number">
                         01
@@ -416,7 +530,7 @@
 
             <div class="col-md-4">
 
-                <a href="voice-studio.html" class="feature-card">
+                <a href="voice-studio.html" class="feature-card reveal reveal-delay-2">
 
                     <div class="feature-number">
                         02
@@ -466,7 +580,7 @@
 
             <div class="col-md-4">
 
-                <a href="live-studio.html" class="feature-card">
+                <a href="live-studio.html" class="feature-card reveal reveal-delay-3">
 
                     <div class="feature-number">
                         03
@@ -517,6 +631,241 @@
 
 
 <!-- =========================================
+     EXPANDED STUDIO DETAIL (NEW)
+========================================= -->
+
+<section class="section-padding">
+
+    <div class="container">
+
+        <div class="section-heading text-center mx-auto reveal">
+
+            <div class="section-eyebrow">WHAT EACH STUDIO DOES</div>
+
+            <h2>
+                Three studios,
+                <span>each built for a different moment.</span>
+            </h2>
+
+        </div>
+
+
+        <div class="row g-4 mt-4">
+
+            <div class="col-md-4">
+
+                <div class="feature-card reveal reveal-delay-1" style="min-height:auto;padding:26px;">
+
+                    <div class="feature-icon face-icon">
+                        <i class="bi bi-person-bounding-box"></i>
+                    </div>
+
+                    <h3>
+                        Face Studio
+                        <small style="display:block;color:#70707d;font-weight:500;font-size:0.65rem;margin-top:4px;">
+                            NON-REALTIME
+                        </small>
+                    </h3>
+
+                    <p style="max-width:none;">
+                        Record first, transform after. Best for
+                        pre-recorded video where you want full control
+                        over the result.
+                    </p>
+
+                    <ul style="padding-left:18px;color:#858590;font-size:0.83rem;line-height:1.9;margin:0;">
+                        <li>Swap identity to any character</li>
+                        <li>Change or remove background</li>
+                        <li>Restyle outfit and appearance</li>
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <div class="feature-card reveal reveal-delay-2" style="min-height:auto;padding:26px;">
+
+                    <div class="feature-icon voice-icon">
+                        <i class="bi bi-mic-fill"></i>
+                    </div>
+
+                    <h3>
+                        Voice Studio
+                        <small style="display:block;color:#70707d;font-weight:500;font-size:0.65rem;margin-top:4px;">
+                            BOTH MODES
+                        </small>
+                    </h3>
+
+                    <p style="max-width:none;">
+                        Convert your voice into another, either live as
+                        you speak or applied afterward to existing audio.
+                    </p>
+
+                    <ul style="padding-left:18px;color:#858590;font-size:0.83rem;line-height:1.9;margin:0;">
+                        <li>Real-time voice conversion</li>
+                        <li>Non-realtime voice transformation</li>
+                        <li>Consistent tone across long recordings</li>
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <div class="feature-card reveal reveal-delay-3" style="min-height:auto;padding:26px;">
+
+                    <div class="feature-icon live-icon">
+                        <i class="bi bi-broadcast"></i>
+                    </div>
+
+                    <h3>
+                        Live Studio
+                        <small style="display:block;color:#70707d;font-weight:500;font-size:0.65rem;margin-top:4px;">
+                            REALTIME ONLY
+                        </small>
+                    </h3>
+
+                    <p style="max-width:none;">
+                        Face and voice transformation together, live,
+                        with no post-processing step in between.
+                    </p>
+
+                    <ul style="padding-left:18px;color:#858590;font-size:0.83rem;line-height:1.9;margin:0;">
+                        <li>Combined face + voice, in sync</li>
+                        <li>Stream to OBS or straight from browser</li>
+                        <li>No delay between you and your audience</li>
+                    </ul>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================
+     WHO IT'S FOR (NEW)
+========================================= -->
+
+<section class="section-padding" id="who-its-for">
+
+    <div class="container">
+
+        <div class="section-heading text-center mx-auto reveal">
+
+            <div class="section-eyebrow">BUILT FOR CREATORS</div>
+
+            <h2>
+                Whatever you create,
+                <span>we've got a studio for it.</span>
+            </h2>
+
+            <p>
+                From live streamers to podcasters, here's who's using
+                AIStudio and why.
+            </p>
+
+        </div>
+
+
+        <div class="row g-4 mt-4">
+
+            <div class="col-md-3 col-6">
+
+                <div class="feature-card reveal reveal-delay-1" style="min-height:auto;padding:24px;">
+
+                    <div class="feature-icon live-icon" style="margin-bottom:16px;">
+                        <i class="bi bi-camera-reels"></i>
+                    </div>
+
+                    <h3 style="font-size:1rem;">Streamers</h3>
+
+                    <p style="max-width:none;margin-bottom:0;">
+                        Go live as an AI character without special
+                        hardware — just your browser and Live Studio.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3 col-6">
+
+                <div class="feature-card reveal reveal-delay-2" style="min-height:auto;padding:24px;">
+
+                    <div class="feature-icon voice-icon" style="margin-bottom:16px;">
+                        <i class="bi bi-mic-fill"></i>
+                    </div>
+
+                    <h3 style="font-size:1rem;">Podcasters &amp; VO artists</h3>
+
+                    <p style="max-width:none;margin-bottom:0;">
+                        Clone or transform your voice for narration,
+                        dubbing, or character work — real-time or in post.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3 col-6">
+
+                <div class="feature-card reveal reveal-delay-3" style="min-height:auto;padding:24px;">
+
+                    <div class="feature-icon face-icon" style="margin-bottom:16px;">
+                        <i class="bi bi-film"></i>
+                    </div>
+
+                    <h3 style="font-size:1rem;">Content creators</h3>
+
+                    <p style="max-width:none;margin-bottom:0;">
+                        Swap identity, background, or outfit after the
+                        fact — no green screen, no reshoot.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3 col-6">
+
+                <div class="feature-card reveal reveal-delay-4" style="min-height:auto;padding:24px;">
+
+                    <div class="feature-icon" style="margin-bottom:16px;color:#c9c4ff;background:rgba(255,255,255,0.05);border:1px solid var(--border-light);">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+
+                    <h3 style="font-size:1rem;">Privacy-conscious users</h3>
+
+                    <p style="max-width:none;margin-bottom:0;">
+                        Appear online, on calls, or on stream without
+                        showing your real face or voice.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================
      HOW IT WORKS
 ========================================= -->
 
@@ -526,7 +875,7 @@
 
         <div class="row align-items-center">
 
-            <div class="col-lg-5">
+            <div class="col-lg-5 reveal">
 
                 <div class="section-eyebrow">
                     SIMPLE WORKFLOW
@@ -554,7 +903,7 @@
 
                 <div class="steps">
 
-                    <div class="step">
+                    <div class="step reveal reveal-delay-1">
 
                         <div class="step-number">
                             01
@@ -574,7 +923,7 @@
                     </div>
 
 
-                    <div class="step">
+                    <div class="step reveal reveal-delay-2">
 
                         <div class="step-number">
                             02
@@ -594,7 +943,7 @@
                     </div>
 
 
-                    <div class="step">
+                    <div class="step reveal reveal-delay-3">
 
                         <div class="step-number">
                             03
@@ -614,7 +963,7 @@
                     </div>
 
 
-                    <div class="step">
+                    <div class="step reveal reveal-delay-4">
 
                         <div class="step-number">
                             04
@@ -652,25 +1001,29 @@
 
     <div class="container">
 
-        <div class="section-heading text-center mx-auto">
+        <div class="section-heading text-center mx-auto reveal">
 
             <div class="section-eyebrow">
                 CREATOR STUDIO
             </div>
 
             <h2>
-                Your creative workspace,
-                <span>all in one place.</span>
+                See the transformation,
+                <span>right inside the studio.</span>
             </h2>
 
             <p>
-                Move between tools without leaving your workflow.
+                Switch between Face, Voice and Live to preview what
+                real-time AI transformation looks and sounds like.
             </p>
 
         </div>
 
 
-        <div class="studio-preview mt-5">
+        <div
+            class="studio-preview mt-5 reveal"
+            id="studioDemo"
+        >
 
             <div class="studio-preview-top">
 
@@ -693,22 +1046,17 @@
 
                 <div class="studio-sidebar">
 
-                    <div class="studio-nav active">
-                        <i class="bi bi-grid"></i>
-                        Dashboard
-                    </div>
-
-                    <div class="studio-nav">
+                    <div class="studio-nav active" data-tab="face">
                         <i class="bi bi-person-bounding-box"></i>
                         Face Studio
                     </div>
 
-                    <div class="studio-nav">
+                    <div class="studio-nav" data-tab="voice">
                         <i class="bi bi-mic"></i>
                         Voice Studio
                     </div>
 
-                    <div class="studio-nav">
+                    <div class="studio-nav" data-tab="live">
                         <i class="bi bi-broadcast"></i>
                         Live Studio
                     </div>
@@ -721,69 +1069,259 @@
                     <div class="studio-main-heading">
 
                         <div>
-                            <small>CREATOR WORKSPACE</small>
-                            <h3>Welcome back</h3>
+                            <small id="demoLabel">FACE TRANSFORMATION</small>
+                            <h3 id="demoTitle">Real footage, transformed live</h3>
                         </div>
 
-                        <button class="studio-create-btn">
-                            <i class="bi bi-plus"></i>
-                            New Project
+                        <button class="studio-create-btn" id="demoActionBtn">
+                            <i class="bi bi-play-fill"></i>
+                            <span>Play demo</span>
                         </button>
 
                     </div>
 
 
-                    <div class="studio-stat-grid">
+                    <!-- FACE STUDIO — your own composited clip: original | reference | output, side by side in one video -->
+                    <div class="demo-panel" data-panel="face">
 
-                        <div class="studio-stat">
-                            <span>Credits</span>
-                            <strong>2,500</strong>
+                        <div class="yt-embed-wrap">
+                            <video
+                                id="faceStudioClip"
+                                playsinline
+                                loop
+                                muted
+                                preload="metadata"
+                            >
+                                <source src="media/face-studio-demo.mp4" type="video/mp4">
+                            </video>
                         </div>
 
-                        <div class="studio-stat">
-                            <span>Projects</span>
-                            <strong>12</strong>
-                        </div>
-
-                        <div class="studio-stat">
-                            <span>AI Usage</span>
-                            <strong>48m</strong>
+                        <div class="demo-caption">
+                            <span>
+                                Original · reference · output, side by side
+                            </span>
+                            <strong>~6 credits / sec</strong>
                         </div>
 
                     </div>
 
 
-                    <div class="studio-project-grid">
+                    <!-- VOICE STUDIO — your own three recordings: original, cloned voice, output -->
+                    <div class="demo-panel" data-panel="voice" hidden>
 
-                        <div class="project-placeholder large">
+                        <div class="voice-demo-grid">
 
-                            <div class="project-icon">
-                                <i class="bi bi-camera-video"></i>
+                            <div class="voice-track">
+                                <div class="voice-track-top">
+                                    <span class="voice-track-label">Original Voice</span>
+                                </div>
+                                <audio id="voiceOriginal" controls preload="metadata" style="width:100%;">
+                                    <source src="media/voice-original.mp3" type="audio/mpeg">
+                                </audio>
                             </div>
 
-                            <div>
-                                <small>LIVE PROJECT</small>
-                                <strong>Creator Session</strong>
+                            <div class="voice-track">
+                                <div class="voice-track-top">
+                                    <span class="voice-track-label">Cloned Voice</span>
+                                </div>
+                                <audio id="voiceClone" controls preload="metadata" style="width:100%;">
+                                    <source src="media/voice-clone.mp3" type="audio/mpeg">
+                                </audio>
+                            </div>
+
+                            <div class="voice-track is-after">
+                                <div class="voice-track-top">
+                                    <span class="voice-track-label">Output</span>
+                                </div>
+                                <audio id="voiceOutput" controls preload="metadata" style="width:100%;">
+                                    <source src="media/voice-output.mp3" type="audio/mpeg">
+                                </audio>
                             </div>
 
                         </div>
 
-                        <div class="project-placeholder">
+                        <div class="demo-caption">
+                            <span>
+                                Three real recordings — original, cloned voice and the final AI output
+                            </span>
+                            <strong>~2 credits / sec</strong>
+                        </div>
 
-                            <div class="project-icon">
-                                <i class="bi bi-person"></i>
+                    </div>
+
+
+                    <!-- LIVE STUDIO — your own two mp4 clips, side by side, autoplaying in sync -->
+                    <div class="demo-panel" data-panel="live" hidden>
+
+                        <div class="live-demo-grid">
+
+                            <div class="live-demo-col">
+
+                                <span class="live-demo-label">Real Camera</span>
+
+                                <div class="yt-embed-wrap">
+                                    <video
+                                        id="liveClipA"
+                                        playsinline
+                                        loop
+                                        muted
+                                        preload="metadata"
+                                    >
+                                        <source src="media/live-clip-a.mp4" type="video/mp4">
+                                    </video>
+                                </div>
+
                             </div>
 
-                            <div>
-                                <small>FACE PROJECT</small>
-                                <strong>Character Test</strong>
+                            <div class="live-demo-col">
+
+                                <span class="live-demo-label">AI Live</span>
+
+                                <div class="yt-embed-wrap">
+                                    <video
+                                        id="liveClipB"
+                                        playsinline
+                                        loop
+                                        muted
+                                        preload="metadata"
+                                    >
+                                        <source src="media/live-clip-b.mp4" type="video/mp4">
+                                    </video>
+                                </div>
+
                             </div>
 
+                        </div>
+
+                        <div class="demo-caption">
+                            <span>
+                                Two real clips, playing together automatically
+                            </span>
+                            <strong>~8 credits / sec</strong>
                         </div>
 
                     </div>
 
                 </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================
+     USE CASES (NEW)
+========================================= -->
+
+<section class="section-padding section-dark" id="use-cases">
+
+    <div class="container">
+
+        <div class="section-heading mx-auto reveal">
+
+            <div class="section-eyebrow">REAL SCENARIOS</div>
+
+            <h2 class="section-title">
+                A few ways people
+                <span>use AIStudio.</span>
+            </h2>
+
+        </div>
+
+
+        <div
+            class="mt-5 reveal"
+            style="display:flex;gap:18px;overflow-x:auto;padding-bottom:10px;"
+        >
+
+            <div
+                class="pricing-card"
+                style="flex:0 0 300px;padding:24px;"
+            >
+
+                <span class="feature-number" style="position:static;display:block;margin-bottom:14px;">
+                    01
+                </span>
+
+                <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:8px;">
+                    Streaming as a character
+                </h4>
+
+                <p style="color:#858590;font-size:0.8rem;line-height:1.7;margin:0;">
+                    A Twitch streamer runs Live Studio to broadcast as
+                    an original character, keeping their real identity
+                    private while chatting live with viewers.
+                </p>
+
+            </div>
+
+
+            <div
+                class="pricing-card"
+                style="flex:0 0 300px;padding:24px;"
+            >
+
+                <span class="feature-number" style="position:static;display:block;margin-bottom:14px;">
+                    02
+                </span>
+
+                <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:8px;">
+                    Dubbing a video into another voice
+                </h4>
+
+                <p style="color:#858590;font-size:0.8rem;line-height:1.7;margin:0;">
+                    A creator records narration once, then uses Voice
+                    Studio non-realtime to convert it into a different
+                    voice for a separate cut of the video.
+                </p>
+
+            </div>
+
+
+            <div
+                class="pricing-card"
+                style="flex:0 0 300px;padding:24px;"
+            >
+
+                <span class="feature-number" style="position:static;display:block;margin-bottom:14px;">
+                    03
+                </span>
+
+                <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:8px;">
+                    Swapping a background after filming
+                </h4>
+
+                <p style="color:#858590;font-size:0.8rem;line-height:1.7;margin:0;">
+                    A course creator films at their desk, then uses
+                    Face Studio to replace the background with a clean
+                    studio setting — no reshoot needed.
+                </p>
+
+            </div>
+
+
+            <div
+                class="pricing-card"
+                style="flex:0 0 300px;padding:24px;"
+            >
+
+                <span class="feature-number" style="position:static;display:block;margin-bottom:14px;">
+                    04
+                </span>
+
+                <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:8px;">
+                    Hosting a live call as an avatar
+                </h4>
+
+                <p style="color:#858590;font-size:0.8rem;line-height:1.7;margin:0;">
+                    Someone joins a live audio/video session through
+                    Live Studio, appearing and sounding like a
+                    different persona in real time.
+                </p>
 
             </div>
 
@@ -806,7 +1344,7 @@
 
             <div class="col-lg-6">
 
-                <div class="stream-visual">
+                <div class="stream-visual reveal">
 
                     <div class="stream-browser">
 
@@ -852,7 +1390,7 @@
             </div>
 
 
-            <div class="col-lg-5 offset-lg-1 mt-5 mt-lg-0">
+            <div class="col-lg-5 offset-lg-1 mt-5 mt-lg-0 reveal">
 
                 <div class="section-eyebrow">
                     STREAM ANYWHERE
@@ -916,19 +1454,20 @@
 
     <div class="container">
 
-        <div class="section-heading text-center mx-auto">
+        <div class="section-heading text-center mx-auto reveal">
 
             <div class="section-eyebrow">
                 SIMPLE PRICING
             </div>
 
             <h2>
-                Choose the plan that
-                <span>fits your workflow.</span>
+                Buy credits,
+                <span>use them your way.</span>
             </h2>
 
             <p>
-                Start free and upgrade when you need more creative power.
+                No subscriptions. Buy credits once, use them whenever
+                you create.
             </p>
 
         </div>
@@ -938,9 +1477,9 @@
 
             <!-- FREE -->
 
-            <div class="col-lg-4">
+            <div class="col-lg-3">
 
-                <div class="pricing-card">
+                <div class="pricing-card reveal reveal-delay-1">
 
                     <div class="pricing-top">
 
@@ -950,11 +1489,10 @@
 
                         <h3>
                             $0
-                            <small>/month</small>
                         </h3>
 
                         <p>
-                            Explore the platform and start creating.
+                            Create an account and explore the platform.
                         </p>
 
                     </div>
@@ -965,22 +1503,17 @@
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Starter credits
+                            Full platform access
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Face Studio access
+                            Face, Voice and Live Studio
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Voice Studio access
-                        </li>
-
-                        <li>
-                            <i class="bi bi-check2"></i>
-                            Basic Live Studio
+                            Buy credits any time
                         </li>
 
                     </ul>
@@ -996,9 +1529,9 @@
 
             <!-- CREATOR -->
 
-            <div class="col-lg-4">
+            <div class="col-lg-3">
 
-                <div class="pricing-card featured">
+                <div class="pricing-card featured reveal reveal-delay-2">
 
                     <div class="popular-badge">
                         MOST POPULAR
@@ -1011,12 +1544,11 @@
                         </span>
 
                         <h3>
-                            $19
-                            <small>/month</small>
+                            $15
                         </h3>
 
                         <p>
-                            For creators who want more freedom.
+                            1,500 AI credits, one-time.
                         </p>
 
                     </div>
@@ -1027,28 +1559,23 @@
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            More monthly credits
+                            1,500 credits
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Full Face Studio
+                            ~4 minutes of face transformation
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Full Voice Studio
-                        </li>
-
-                        <li>
-                            <i class="bi bi-check2"></i>
-                            Live Studio + OBS
+                            Credits never expire
                         </li>
 
                     </ul>
 
-                    <a href="get-started.php" class="btn btn-primary-custom w-100">
-                        Start Creating
+                    <a href="buy-credits.php" class="btn btn-primary-custom w-100">
+                        Buy Creator
                     </a>
 
                 </div>
@@ -1058,9 +1585,9 @@
 
             <!-- PRO -->
 
-            <div class="col-lg-4">
+            <div class="col-lg-3">
 
-                <div class="pricing-card">
+                <div class="pricing-card reveal reveal-delay-3">
 
                     <div class="pricing-top">
 
@@ -1069,12 +1596,11 @@
                         </span>
 
                         <h3>
-                            $49
-                            <small>/month</small>
+                            $45
                         </h3>
 
                         <p>
-                            Built for serious creators and teams.
+                            4,500 AI credits, one-time.
                         </p>
 
                     </div>
@@ -1085,28 +1611,75 @@
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Large monthly credit allowance
+                            4,500 credits
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Priority AI processing
+                            ~12.5 minutes of face transformation
                         </li>
 
                         <li>
                             <i class="bi bi-check2"></i>
-                            Advanced live tools
-                        </li>
-
-                        <li>
-                            <i class="bi bi-check2"></i>
-                            Analytics and usage insights
+                            Credits never expire
                         </li>
 
                     </ul>
 
-                    <a href="get-started.php" class="btn btn-outline-custom w-100">
-                        Get Started
+                    <a href="buy-credits.php" class="btn btn-outline-custom w-100">
+                        Buy Pro
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <!-- PRO CREATOR -->
+
+            <div class="col-lg-3">
+
+                <div class="pricing-card reveal reveal-delay-4">
+
+                    <div class="pricing-top">
+
+                        <span class="pricing-label">
+                            PRO CREATOR
+                        </span>
+
+                        <h3>
+                            $150
+                        </h3>
+
+                        <p>
+                            15,000 AI credits, one-time.
+                        </p>
+
+                    </div>
+
+                    <div class="pricing-divider"></div>
+
+                    <ul>
+
+                        <li>
+                            <i class="bi bi-check2"></i>
+                            15,000 credits
+                        </li>
+
+                        <li>
+                            <i class="bi bi-check2"></i>
+                            ~41.7 minutes of face transformation
+                        </li>
+
+                        <li>
+                            <i class="bi bi-check2"></i>
+                            Credits never expire
+                        </li>
+
+                    </ul>
+
+                    <a href="buy-credits.php" class="btn btn-outline-custom w-100">
+                        Buy Pro Creator
                     </a>
 
                 </div>
@@ -1117,9 +1690,31 @@
 
 
         <p class="pricing-note text-center mt-4">
-            Pricing and credit amounts are placeholders and can be
-            configured before launch.
+            Credits are billed per second of use: Face $0.06/sec,
+            Voice $0.02/sec, Face + Voice $0.08/sec. Buy any amount
+            you like on the credits page, or choose a plan above.
         </p>
+
+
+        <!-- PAYMENT TRUST STRIP (NEW) -->
+        <div class="text-center mt-5">
+
+            <div class="section-eyebrow">SECURE CHECKOUT</div>
+
+            <h3 style="font-size:1.6rem;font-weight:700;margin-bottom:6px;color:white;">
+                Powered by <span style="color:#4bdb87;">Paystack</span>
+            </h3>
+
+            <div
+                style="display:flex;align-items:center;justify-content:center;gap:10px;color:#70707d;font-size:0.75rem;"
+            >
+                <i class="bi bi-shield-check" style="color:#4bdb87;"></i>
+                All payments are securely processed by
+                <strong style="color:#cfcfd6;">Paystack</strong>
+                — we never see or store your card details.
+            </div>
+
+        </div>
 
     </div>
 
@@ -1134,7 +1729,7 @@
 
     <div class="container">
 
-        <div class="section-heading text-center mx-auto">
+        <div class="section-heading text-center mx-auto reveal">
 
             <div class="section-eyebrow">
                 FAQ
@@ -1152,7 +1747,7 @@
 
             <div class="accordion" id="faqAccordion">
 
-                <div class="accordion-item">
+                <div class="accordion-item reveal reveal-delay-1">
 
                     <h2 class="accordion-header">
 
@@ -1184,7 +1779,7 @@
                 </div>
 
 
-                <div class="accordion-item">
+                <div class="accordion-item reveal reveal-delay-2">
 
                     <h2 class="accordion-header">
 
@@ -1216,7 +1811,7 @@
                 </div>
 
 
-                <div class="accordion-item">
+                <div class="accordion-item reveal reveal-delay-3">
 
                     <h2 class="accordion-header">
 
@@ -1238,9 +1833,12 @@
                     >
 
                         <div class="accordion-body">
-                            AI features will use credits based on the
-                            amount of processing required. Your dashboard
-                            will show your available balance and usage.
+                            AI features use credits based on the amount
+                            of processing required. Face transformation
+                            costs 6 credits per second, voice costs 2
+                            credits per second, and face + voice together
+                            costs 8 credits per second. Your dashboard
+                            shows your available balance and usage.
                         </div>
 
                     </div>
@@ -1248,7 +1846,7 @@
                 </div>
 
 
-                <div class="accordion-item">
+                <div class="accordion-item reveal reveal-delay-4">
 
                     <h2 class="accordion-header">
 
@@ -1279,7 +1877,7 @@
                 </div>
 
 
-                <div class="accordion-item">
+                <div class="accordion-item reveal reveal-delay-5">
 
                     <h2 class="accordion-header">
 
@@ -1329,7 +1927,7 @@
 
     <div class="container">
 
-        <div class="cta-box">
+        <div class="cta-box reveal">
 
             <div class="cta-glow"></div>
 
@@ -1436,7 +2034,10 @@
 ></script>
 
 <!-- Main JavaScript -->
-<script src="js/main.js"></script>
+<script src="js/main.js?v=3"></script>
+
+<!-- Studio transformation demo -->
+<script src="js/studio-demo.js?v=4"></script>
 
 </body>
 </html>

@@ -249,6 +249,27 @@ $userStatus = htmlspecialchars(
     'UTF-8'
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Payment result (returning from Paystack via verify-payment.php)
+|--------------------------------------------------------------------------
+*/
+
+$paymentStatus = null;
+$paymentMessage = null;
+
+if (isset($_GET['payment'])) {
+
+    if ($_GET['payment'] === 'success') {
+        $paymentStatus = 'success';
+        $paymentMessage = 'Payment successful! Your credits have been added.';
+    } elseif ($_GET['payment'] === 'failed') {
+        $paymentStatus = 'failed';
+        $paymentMessage = 'Payment could not be completed. Please try again.';
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -308,7 +329,15 @@ $userStatus = htmlspecialchars(
 </head>
 
 
-<body>
+<body
+    data-user-name="<?php echo $userName; ?>"
+    data-user-email="<?php echo $userEmail; ?>"
+    data-user-credits="<?php echo $userCredits; ?>"
+    <?php if ($paymentStatus): ?>
+    data-payment-status="<?php echo htmlspecialchars($paymentStatus, ENT_QUOTES, 'UTF-8'); ?>"
+    data-payment-message="<?php echo htmlspecialchars($paymentMessage, ENT_QUOTES, 'UTF-8'); ?>"
+    <?php endif; ?>
+>
 
 
 <!-- =========================================================
@@ -502,7 +531,7 @@ $userStatus = htmlspecialchars(
             </p>
 
             <a
-                href="#credits"
+                href="buy-credits.php"
                 class="upgrade-link"
             >
                 Upgrade
@@ -611,6 +640,7 @@ $userStatus = htmlspecialchars(
                 <button
                     type="button"
                     class="topbar-icon-button"
+                    id="notificationButton"
                     aria-label="Notifications"
                     title="Notifications"
                 >
@@ -625,8 +655,9 @@ $userStatus = htmlspecialchars(
                 <!-- Credits -->
 
                 <a
-                    href="#credits"
+                    href="buy-credits.php"
                     class="credits-pill"
+                    id="topbarCredits"
                 >
 
                     <i class="bi bi-coin"></i>
@@ -677,7 +708,7 @@ $userStatus = htmlspecialchars(
 
                     <h1>
                         Welcome back,
-                        <?php echo $userFirstName; ?>.
+                        <span id="welcomeUserName"><?php echo $userFirstName; ?></span>.
                     </h1>
 
                     <p>
@@ -777,7 +808,7 @@ $userStatus = htmlspecialchars(
 
                     </div>
 
-                    <div class="stat-value">
+                    <div class="stat-value" id="projectsCount">
                         0
                     </div>
 
@@ -804,7 +835,7 @@ $userStatus = htmlspecialchars(
 
                     </div>
 
-                    <div class="stat-value">
+                    <div class="stat-value" id="usageMinutes">
                         0
                     </div>
 
@@ -831,7 +862,7 @@ $userStatus = htmlspecialchars(
 
                     </div>
 
-                    <div class="stat-value">
+                    <div class="stat-value" id="creditsBalance">
                         <?php echo $userCreditsDisplay; ?>
                     </div>
 
@@ -858,7 +889,7 @@ $userStatus = htmlspecialchars(
 
                     </div>
 
-                    <div class="stat-value stat-value-small">
+                    <div class="stat-value stat-value-small" id="currentPlan">
                         Free
                     </div>
 
@@ -1171,7 +1202,7 @@ $userStatus = htmlspecialchars(
                 </div>
 
 
-                <div class="empty-state">
+                <div class="empty-state" id="emptyProjects">
 
 
                     <div class="empty-state-icon">
@@ -1204,6 +1235,8 @@ $userStatus = htmlspecialchars(
                     </a>
 
                 </div>
+
+                <div id="projectsList"></div>
 
             </section>
 
@@ -1359,17 +1392,16 @@ $userStatus = htmlspecialchars(
 
                     <div class="credits-banner-action">
 
-                        <button
-                            type="button"
+                        <a
+                            href="buy-credits.php"
                             class="btn btn-primary"
-                            disabled
                         >
 
                             <i class="bi bi-plus-lg"></i>
 
                             Buy Credits
 
-                        </button>
+                        </a>
 
                     </div>
 
@@ -1604,6 +1636,15 @@ $userStatus = htmlspecialchars(
     class="sidebar-overlay"
     id="sidebarOverlay"
 ></div>
+
+
+<!-- =========================================================
+     TOAST (used by dashboard.js showToast(), incl. payment result)
+========================================================= -->
+
+<div class="dashboard-toast" id="dashboardToast">
+    <span id="dashboardToastMessage"></span>
+</div>
 
 
 
