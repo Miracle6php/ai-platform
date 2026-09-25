@@ -788,8 +788,11 @@ $referenceFile = new CURLFile(
 | prompt            = optional text prompt
 | reference_image   = reference image
 |
-| We intentionally use an empty prompt because
-| this Face Studio mode is reference-image based.
+| We now send an explicit text prompt alongside the reference image so
+| Decart performs a STRICT full-look match to the reference: face, hair,
+| facial expression, clothing, and any accessories (caps, glasses, etc.)
+| shown in the reference image. The video's own lighting, background,
+| body pose, and motion are preserved.
 |
 | IMPORTANT: this call only *submits* the job. It does NOT wait for the
 | job to finish, and it does NOT download the result. Waiting/downloading
@@ -804,7 +807,7 @@ $postFields = [
         $videoFile,
 
     'prompt' =>
-        '',
+        'Replace the face, hair, facial expression, and clothing with an exact match to the person in the reference image, including any accessories such as caps, hats, or glasses shown in the reference. Preserve the video\'s original lighting, background, body pose, and motion exactly.',
 
     'reference_image' =>
         $referenceFile,
