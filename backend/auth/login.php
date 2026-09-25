@@ -61,7 +61,7 @@ if (!preg_match('/^[a-zA-Z0-9._%+-]+@gmail\.com$/', $email)) {
 */
 
 $stmt = $conn->prepare(
-    "SELECT id, name, email, password_hash, credits_balance, status
+    "SELECT id, name, email, password_hash, credits_balance, status, role
      FROM users
      WHERE email = ?
      LIMIT 1"
@@ -166,7 +166,11 @@ $conn->close();
 |--------------------------------------------------------------------------
 */
 
-header('Location: ../../dashboard.php');
+if ($user['role'] === 'admin') {
+    header('Location: ../../admin.php');
+} else {
+    header('Location: ../../dashboard.php');
+}
 
 exit;
 
