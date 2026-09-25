@@ -2,60 +2,52 @@
 /**
  * backend/config/dns_workaround.php
  *
- * WORKAROUND for the Acode/Alpine sandbox — not a permanent fix.
+ * WORKAROUND for the Acode/Alpine sandbox — NOT needed on Railway.
  *
- * Symptom this addresses: curl fails with "Could not resolve host:
- * ..." (errno 6) even though /etc/resolv.conf looks correct and raw
- * connectivity works. This is a known failure mode in some on-device
- * proot/Alpine sandboxes, where DNS resolution specifically breaks
- * inside curl.
+ * FIX (2026): this workaround pins specific IPs for api.decart.ai,
+ * api.elevenlabs.io and api.paystack.co via CURLOPT_RESOLVE, skipping
+ * normal DNS resolution. It was written to fix a DNS bug specific to
+ * local on-device Acode/proot/Alpine sandboxes.
  *
- * This tells curl to skip DNS for a known set of hosts and connect
- * straight to a pinned IP instead, via CURLOPT_RESOLVE. The hostname
- * is still sent correctly for TLS/SNI and the Host header, so the
- * request is otherwise identical to a normal DNS-resolved one — only
- * the lookup step is skipped.
+ * Railway's containers do NOT have that DNS bug — they resolve DNS
+ * normally. Keeping the pinned IPs active here is actively harmful:
+ * CDN-backed hosts like api.decart.ai (CloudFront) rotate their IPs
+ * over time, so a pinned IP captured during local Acode testing can
+ * go stale and start silently failing or hanging on Railway, even
+ * though normal DNS resolution would work fine.
  *
- * CAVEAT: these IPs can change (especially api.decart.ai, which is
- * served via CloudFront). If a call that previously worked starts
- * failing with a *connection* error (not a DNS error) after this was
- * applied, re-resolve the host from a machine with working DNS and
- * update the map below:
+ * apply_dns_workaround() is now a NO-OP: it leaves curl to resolve
+ * DNS normally in every environment. The pinned-IP map and logic are
+ * kept below (commented out) only for reference, in case this project
+ * ever needs to run in that specific Acode sandbox again.
  *
- *   python3 -c "import socket; print(socket.gethostbyname('HOST'))"
+ * If you ever need to re-enable the pinning workaround for local
+ * Acode testing only, guard it behind an environment check, e.g.:
  *
- * Once this environment's real DNS issue is fixed (or the project
- * moves to a normal server), this file and its call sites can be
- * removed — nothing else depends on it.
+ *     if (getenv('DNS_WORKAROUND_ENABLED') === '1') { ... }
+ *
+ * so it never silently applies on Railway or any other real host.
  */
 
+/*
 const DNS_WORKAROUND_IPS = [
     'api.decart.ai'     => '18.164.78.101',
     'api.elevenlabs.io' => '34.8.184.191',
     'api.paystack.co'   => '104.18.28.7',
 ];
+*/
 
 if (!function_exists('apply_dns_workaround')) {
 
     /**
-     * Call this on a curl handle right after curl_init(), before
-     * curl_setopt_array(). Infers the host from the handle's URL if
-     * $host isn't passed explicitly.
+     * No-op on Railway / any normal host: curl resolves DNS itself.
+     * Kept as a function (rather than removing every call site) so
+     * transform.php, status.php, buy-credits.php and verify-payment.php
+     * don't need to change at all.
      */
     function apply_dns_workaround($ch, ?string $host = null, int $port = 443): void
     {
-        if ($host === null) {
-            $info = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-            $host = $info ? (parse_url($info, PHP_URL_HOST) ?? '') : '';
-        }
-
-        if (!isset(DNS_WORKAROUND_IPS[$host])) {
-            // Unknown host — nothing to do, let curl resolve normally.
-            return;
-        }
-
-        curl_setopt($ch, CURLOPT_RESOLVE, [
-            "{$host}:{$port}:" . DNS_WORKAROUND_IPS[$host],
-        ]);
+        // Intentionally does nothing. See file header comment above.
+        return;
     }
 }
