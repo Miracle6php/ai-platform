@@ -1,5 +1,18 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| TEMPORARY: surface fatal errors instead of failing silently
+|--------------------------------------------------------------------------
+| Added while diagnosing why transform.php sometimes never reaches its
+| first log line. Once things are confirmed working, these two lines
+| can be removed (or set display_errors back to '0') so raw PHP errors
+| are never shown to end users in production.
+|--------------------------------------------------------------------------
+*/
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+
 session_start();
 
 header('Content-Type: application/json');
@@ -780,12 +793,7 @@ $referenceFile = new CURLFile(
 |
 | IMPORTANT: this call only *submits* the job. It does NOT wait for the
 | job to finish, and it does NOT download the result. Waiting/downloading
-| happens in status.php, called repeatedly by the browser. Doing the
-| whole thing in one request used to hold the HTTP connection open for
-| up to ~20 minutes, which timed out at the web server / proxy layer
-| (independent of set_time_limit(0) in PHP) and surfaced to the browser
-| as a generic network error ("Could not connect to the AIStudio
-| server"), even though the Decart job itself was fine.
+| happens in status.php, called repeatedly by the browser.
 |
 |--------------------------------------------------------------------------
 */
@@ -821,37 +829,6 @@ file_put_contents(
 /*
 |--------------------------------------------------------------------------
 | Submit to Decart with a small retry allowance
-|--------------------------------------------------------------------------
-|
-| Unlike status polling (where the browser just calls status.php again
-| a few seconds later), this call carries the uploaded files — if it
-| fails we can't ask the browser to "just retry," the files are only
-| available for this one request. So a transient connection blip here
-| gets retried a couple of times server-side, before we give up and
-| report failure.
-|
-| FIX: this loop used to be able to block for up to ~375 seconds
-| (6 attempts * 60s CURLOPT_TIMEOUT, plus 1+2+3+4+5s of sleep() backoff
-| between attempts) with ZERO bytes sent back to the browser the whole
-| time. Any reverse proxy, load balancer, or even the browser itself
-| will typically kill a connection that's been silent that long — and
-| when that happens the client doesn't get an HTTP response at all, it
-| gets a dropped connection, which surfaces as xhr.onerror ->
-| "Could not connect to the AIStudio server" (this is what the client
-| was showing, with its own "retrying 4/4" client-side retry loop
-| layered on top of THIS server-side retry loop, making things worse,
-| not better).
-|
-| set_time_limit(0) above does NOT fix this — it only removes PHP's
-| own execution-time limit, it has no effect on a proxy/server/browser
-| timing out an idle connection in front of PHP.
-|
-| The fix: keep this loop short enough that the whole request reliably
-| returns well within typical proxy read-timeouts (often ~60s), and
-| let the browser's own existing retry loop (in face-studio.js) handle
-| resubmission if this single short attempt genuinely fails, instead
-| of stacking two long retry loops on top of each other.
-|
 |--------------------------------------------------------------------------
 */
 
@@ -891,14 +868,6 @@ for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
             CURLOPT_RETURNTRANSFER =>
                 true,
 
-            /*
-             * Only bounds the *submission* request now (uploading the
-             * files and getting a job_id back) — not the whole
-             * transformation. Kept well under typical proxy read
-             * timeouts (~60s) so a stuck attempt fails fast instead of
-             * silently starving the connection until something in
-             * front of PHP kills it.
-             */
             CURLOPT_TIMEOUT =>
                 20,
 
@@ -922,8 +891,6 @@ for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
     curl_close($ch);
 
     if ($decartResponse !== false) {
-        /* Got a response (even an error HTTP code) — stop retrying,
-           there's nothing transient left to retry against. */
         break;
     }
 
@@ -935,8 +902,6 @@ for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
         FILE_APPEND
     );
 
-    /* Short, fixed pause — not a growing backoff. Multiple attempts
-       here should only ever cover a brief blip, never minutes. */
     if ($attempt < MAX_SUBMIT_ATTEMPTS) {
         usleep(500000); // 0.5s
     }
@@ -1098,12 +1063,6 @@ file_put_contents(
 /*
 |--------------------------------------------------------------------------
 | Stash job context in the session
-|--------------------------------------------------------------------------
-|
-| status.php looks this up by job_id + the logged-in user_id, so the
-| browser only ever needs to pass back the job_id — it can't spoof
-| credits_required or whose job this is.
-|
 |--------------------------------------------------------------------------
 */
 
