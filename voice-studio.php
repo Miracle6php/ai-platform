@@ -388,7 +388,7 @@ $safeCredits = (int) $userCredits;
                         </h1>
 
                         <p>
-                            Transform your voice with AI. Upload your audio, choose a voice, and create a new voice experience.
+                            Transform your voice with AI. Upload your audio or video, choose a voice, and create a new voice experience.
                         </p>
 
                     </div>
@@ -426,7 +426,7 @@ $safeCredits = (int) $userCredits;
                                 </div>
 
                                 <h2>
-                                    Source Audio
+                                    Source Media
                                 </h2>
 
                             </div>
@@ -437,6 +437,35 @@ $safeCredits = (int) $userCredits;
                             >
                                 Waiting
                             </div>
+
+                        </div>
+
+
+                        <!-- MEDIA TYPE SWITCH -->
+                        <div
+                            class="media-type-switch"
+                            id="mediaTypeSwitch"
+                        >
+
+                            <button
+                                type="button"
+                                class="media-type-option active"
+                                id="mediaTypeAudioButton"
+                                data-media-mode="audio"
+                            >
+                                <i class="bi bi-music-note-beamed"></i>
+                                <span>Audio</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="media-type-option"
+                                id="mediaTypeVideoButton"
+                                data-media-mode="video"
+                            >
+                                <i class="bi bi-camera-video"></i>
+                                <span>Video</span>
+                            </button>
 
                         </div>
 
@@ -455,14 +484,17 @@ $safeCredits = (int) $userCredits;
                             >
 
                             <div class="upload-icon">
-                                <i class="bi bi-mic"></i>
+                                <i
+                                    class="bi bi-mic"
+                                    id="uploadAreaIcon"
+                                ></i>
                             </div>
 
-                            <h3>
+                            <h3 id="uploadAreaTitle">
                                 Upload your voice
                             </h3>
 
-                            <p>
+                            <p id="uploadAreaDescription">
                                 Select an MP3 recording to transform with AI.
                             </p>
 
@@ -471,10 +503,12 @@ $safeCredits = (int) $userCredits;
                                 class="studio-primary-btn"
                                 id="selectAudioButton"
                             >
-                                Choose Audio
+                                <span id="selectAudioButtonLabel">
+                                    Choose Audio
+                                </span>
                             </button>
 
-                            <small>
+                            <small id="uploadAreaHint">
                                 MP3 · Maximum 5 MB
                             </small>
 
@@ -490,12 +524,15 @@ $safeCredits = (int) $userCredits;
                             <div class="audio-player-card">
 
                                 <div class="audio-player-icon">
-                                    <i class="bi bi-music-note-beamed"></i>
+                                    <i
+                                        class="bi bi-music-note-beamed"
+                                        id="previewIcon"
+                                    ></i>
                                 </div>
 
                                 <div class="audio-player-content">
 
-                                    <strong>
+                                    <strong id="previewLabel">
                                         Source Voice
                                     </strong>
 
@@ -513,7 +550,17 @@ $safeCredits = (int) $userCredits;
                                 controls
                                 playsinline
                                 preload="auto"
+                                class="d-none"
                             ></audio>
+
+
+                            <video
+                                id="sourceVideo"
+                                controls
+                                playsinline
+                                preload="auto"
+                                class="d-none"
+                            ></video>
 
 
                             <div class="file-information">
@@ -948,7 +995,7 @@ $safeCredits = (int) $userCredits;
                                 </strong>
 
                                 <span id="usageEstimateText">
-                                    Upload audio to calculate usage.
+                                    Upload audio or video to calculate usage.
                                 </span>
 
                             </div>
@@ -975,7 +1022,7 @@ $safeCredits = (int) $userCredits;
                             </strong>
 
                             <p id="validationMessage">
-                                Upload your source audio and select a voice to continue.
+                                Upload your source audio or video and select a voice to continue.
                             </p>
 
                         </div>
@@ -985,7 +1032,7 @@ $safeCredits = (int) $userCredits;
 
                             <div id="checkAudio">
                                 <i class="bi bi-circle"></i>
-                                Source audio
+                                Source media
                             </div>
 
                             <div id="checkVoice">
@@ -1129,7 +1176,15 @@ $safeCredits = (int) $userCredits;
                                 id="resultAudio"
                                 controls
                                 playsinline
+                                class="d-none"
                             ></audio>
+
+                            <video
+                                id="resultVideo"
+                                controls
+                                playsinline
+                                class="d-none"
+                            ></video>
 
                         </div>
 
@@ -1181,7 +1236,7 @@ $safeCredits = (int) $userCredits;
                             </strong>
 
                             <p>
-                                For the best results, use a clear MP3 recording with minimal background noise.
+                                For the best results, use a clear MP3 recording or video with minimal background noise.
                             </p>
 
                         </div>
@@ -1231,6 +1286,8 @@ $safeCredits = (int) $userCredits;
     <script src="js/dashboard.js"></script>
 
     <script src="js/voice.js"></script>
+
+    <script src="js/voicevideo.js"></script>
 
 </body>
 
