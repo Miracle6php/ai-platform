@@ -807,7 +807,7 @@ $postFields = [
         $videoFile,
 
     'prompt' =>
-        'Step 1: Take the face, skin tone, hair style, hair color, and clothing (including any accessories like caps, hats, or glasses) from the reference image. Step 2: Apply that appearance to the person in the video, replacing their original face, skin tone, hair, and clothing. Step 3: Animate the hair, mouth, eyes, and facial expressions using the original video\'s own motion, timing, and momentum -- do not freeze them to match the reference image\'s static pose. Step 4: Keep hands and fingers sharp and accurate through all movement, with no blur or ghosting. Step 5: Keep the video\'s original background, body pose, lighting, shadows, and color temperature unchanged.',
+        'From the reference image, take only: face, skin tone, hair style, hair color, and clothing, including accessories like caps or glasses. Ignore the reference image\'s pose and hair position -- it is a static photo for appearance only. From the original video, keep: body pose, motion, hand and finger movement, mouth and eye movement, facial expressions, hair swing and momentum, background, lighting, shadows, color temperature, and any held objects like a phone or bag -- do not alter or remove them. Do not keep the original video\'s face, skin tone, hair, or clothing. Hair must move dynamically with head and body motion -- swinging and flowing naturally, not static or stiff. Hands must stay sharp with no blur or ghosting, keeping a natural grip on any held objects. Blend the new face, skin tone, hair, and clothing seamlessly into the background and lighting so edges and shadows look naturally integrated, not composited.',
 
     'reference_image' =>
         $referenceFile,
