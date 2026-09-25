@@ -807,7 +807,7 @@ $postFields = [
         $videoFile,
 
     'prompt' =>
-        'Replace the face, hair, facial expression, and clothing with an exact match to the person in the reference image, including any accessories such as caps, hats, or glasses shown in the reference. Track and preserve, matching the original video exactly: hand and finger position and sharpness, hair swing and momentum, mouth and lip movement, eye movement and blinking, smile and facial expressions, head movement, and natural clothing movement and physics. Render every frame sharp and clear with no motion blur, no lag, and no ghosting, even during fast movement. Preserve the video\'s original lighting, background, body pose, and motion.',
+        'Replace the face, hair, facial expression, and clothing with an exact match to the person in the reference image, including any accessories such as caps, hats, or glasses shown in the reference. Track and preserve, matching the original video exactly: hand and finger position and sharpness, hair swing and momentum, mouth and lip movement, eye movement and blinking, smile and facial expressions, head movement, and natural clothing movement and physics. Render every frame sharp and clear with no motion blur, no lag, and no ghosting, even during fast movement. Preserve the video\'s original background, body pose, and motion. Match the video\'s exact color temperature, shadows, and lighting direction and intensity.',
 
     'reference_image' =>
         $referenceFile,
