@@ -268,7 +268,12 @@ $conn->close();
 <main class="main-content">
 
     <header class="topbar">
-        <div class="topbar-page-title"><span>Admin — User Management</span></div>
+        <div class="topbar-left">
+            <button type="button" class="mobile-menu-button" id="mobileMenuButton" aria-label="Open menu">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="topbar-page-title"><span>Admin — User Management</span></div>
+        </div>
     </header>
 
     <div class="dashboard-container">
@@ -353,6 +358,14 @@ $conn->close();
 </main>
 
 </div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Dashboard JS — provides the mobile sidebar toggle logic used below -->
+<script src="js/dashboard.js"></script>
 
 <script>
 (function () {
