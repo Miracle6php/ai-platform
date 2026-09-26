@@ -287,6 +287,31 @@ $conn->close();
             <div class="admin-stat-card"><span>New (7 days)</span><strong id="statNewUsers">—</strong></div>
         </div>
 
+        <section class="admin-panel">
+            <h3 style="margin:0 0 4px;font-size:16px;">Decart Credit Pool</h3>
+            <p style="margin:0 0 16px;color:var(--text-muted,#8b8b9e);font-size:13px;">
+                Wholesale credits you've pre-purchased from Decart. Every user purchase
+                draws down from this. Top it up manually after paying Decart.
+            </p>
+
+            <div class="admin-stats-grid" style="margin-bottom:16px;">
+                <div class="admin-stat-card">
+                    <span>Available in Pool</span>
+                    <strong id="poolAvailable" style="">—</strong>
+                </div>
+                <div class="admin-stat-card">
+                    <span>Total Sold to Users</span>
+                    <strong id="poolSold">—</strong>
+                </div>
+            </div>
+
+            <form class="admin-search-row" id="topupForm" style="align-items:center;">
+                <input type="number" step="any" min="0" id="topupAmount" placeholder="Amount purchased from Decart" required style="max-width:220px;">
+                <input type="text" id="topupNote" placeholder="Note (optional, e.g. invoice #)" style="max-width:260px;">
+                <button type="submit" class="admin-btn ok">Top Up Pool</button>
+            </form>
+        </section>
+
         <section class="admin-panel" id="usersPanel">
 
             <div class="admin-search-row">
@@ -356,6 +381,16 @@ $conn->close();
     </div>
 
 </main>
+
+<div id="historyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#14141c;border:1px solid #262633;border-radius:14px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <strong id="historyModalTitle">Transaction History</strong>
+            <button class="admin-btn" id="historyModalClose">Close</button>
+        </div>
+        <div id="historyModalBody" style="font-size:13.5px;"></div>
+    </div>
+</div>
 
 </div>
 
@@ -428,9 +463,11 @@ $conn->close();
             ? `<button class="admin-btn" data-action="demote" data-id="${user.id}">Remove admin</button>`
             : `<button class="admin-btn" data-action="promote" data-id="${user.id}">Make admin</button>`;
 
+        const historyButton = `<button class="admin-btn" data-action="history" data-id="${user.id}" data-name="${escapeHtml(user.name)}">History</button>`;
+
         const actionsCell = isProtected
             ? `<span style="opacity:.6"><i class="bi bi-shield-lock-fill"></i> Protected account</span>`
-            : `<div class="admin-row-actions">${blockButton}${banButton}${roleButton}</div>`;
+            : `<div class="admin-row-actions">${blockButton}${banButton}${roleButton}${historyButton}</div>`;
 
         const lastPlan = user.last_plan
             ? escapeHtml(user.last_plan)
@@ -537,6 +574,11 @@ $conn->close();
             btn.addEventListener("click", () => {
                 const id = parseInt(btn.dataset.id, 10);
                 const action = btn.dataset.action;
+
+                if (action === "history") {
+                    openHistoryModal(id, btn.dataset.name);
+                    return;
+                }
 
                 if (action === "ban" && !confirm("Ban this user? They will not be able to log in.")) {
                     return;
@@ -674,8 +716,89 @@ $conn->close();
         loadPurchases();
     });
 
+    // ---------------------------------------------------------------
+    // CREDIT POOL
+    // ---------------------------------------------------------------
+
+    async function loadPool() {
+        try {
+            const data = await api("backend/admin/pool.php");
+            const availEl = el("poolAvailable");
+            availEl.textContent = fmtCredits(data.available_credits);
+            availEl.style.color = data.available_credits < 0 ? "#f87171" : "";
+            el("poolSold").textContent = fmtCredits(data.total_sold);
+        } catch (err) {
+            console.error("Failed to load pool:", err);
+        }
+    }
+
+    el("topupForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const amount = parseFloat(el("topupAmount").value);
+        const note = el("topupNote").value.trim();
+        if (!amount || amount <= 0) return;
+
+        try {
+            await api("backend/admin/pool.php", {
+                method: "POST",
+                body: JSON.stringify({ action: "topup", amount, note }),
+            });
+            el("topupAmount").value = "";
+            el("topupNote").value = "";
+            loadPool();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // ---------------------------------------------------------------
+    // PER-USER TRANSACTION HISTORY MODAL
+    // ---------------------------------------------------------------
+
+    async function openHistoryModal(userId, userName) {
+        el("historyModalTitle").textContent = `${userName} — Transaction History`;
+        el("historyModalBody").innerHTML = "Loading...";
+        el("historyModalOverlay").style.display = "flex";
+
+        try {
+            const data = await api(`backend/admin/user-transactions.php?user_id=${userId}`);
+            if (data.transactions.length === 0) {
+                el("historyModalBody").innerHTML = `<p style="opacity:.6">No purchases yet.</p>`;
+                return;
+            }
+            el("historyModalBody").innerHTML = data.transactions.map((t) => {
+                const cls = t.status === "success" ? "active" : t.status === "pending" ? "suspended" : "banned";
+                const date = new Date(t.created_at).toLocaleString();
+                return `
+                    <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+                        <div style="display:flex;justify-content:space-between;">
+                            <strong>${escapeHtml(t.plan_name || "Custom")}</strong>
+                            <span class="admin-badge ${cls}">${t.status}</span>
+                        </div>
+                        <div style="opacity:.7;margin-top:4px;">
+                            ${fmtMoney(t.amount)} → ${fmtCredits(t.credits)} credits · ${date}
+                        </div>
+                        <div style="opacity:.5;font-size:11px;margin-top:2px;">${escapeHtml(t.reference)}</div>
+                    </div>
+                `;
+            }).join("");
+        } catch (err) {
+            el("historyModalBody").innerHTML = `<p style="color:#f87171">${escapeHtml(err.message)}</p>`;
+        }
+    }
+
+    el("historyModalClose").addEventListener("click", () => {
+        el("historyModalOverlay").style.display = "none";
+    });
+    el("historyModalOverlay").addEventListener("click", (e) => {
+        if (e.target.id === "historyModalOverlay") {
+            el("historyModalOverlay").style.display = "none";
+        }
+    });
+
     loadStats();
     loadUsers();
+    loadPool();
 })();
 </script>
 
