@@ -5,6 +5,7 @@ session_start();
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/paystack.php';
 require_once __DIR__ . '/../config/dns_workaround.php';
+require_once __DIR__ . '/../config/credit_pool.php';
 
 
 /*
@@ -158,6 +159,8 @@ try {
     $stmt->bind_param('di', $creditsToAdd, $userId);
     $stmt->execute();
     $stmt->close();
+
+    record_platform_credit_sale($conn, $creditsToAdd);
 
     $conn->commit();
 } catch (Exception $e) {
