@@ -15,6 +15,7 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/paystack.php';
+require_once __DIR__ . '/../config/credit_pool.php';
 
 $payload = file_get_contents('php://input');
 $signature = $_SERVER['HTTP_X_PAYSTACK_SIGNATURE'] ?? '';
@@ -124,6 +125,8 @@ try {
         $stmt->bind_param('di', $creditsToAdd, $userId);
         $stmt->execute();
         $stmt->close();
+
+        record_platform_credit_sale($conn, $creditsToAdd);
     }
 
     $conn->commit();
