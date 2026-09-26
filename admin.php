@@ -392,10 +392,16 @@ $conn->close();
         }
     }
 
+    // Must match PROTECTED_ADMIN_EMAIL in backend/admin/user-update.php —
+    // the server enforces this regardless, this is just so the UI
+    // doesn't offer buttons that will fail anyway.
+    const PROTECTED_ADMIN_EMAIL = "adminyes1@gmail.com";
+
     function userRow(user) {
         const joined = new Date(user.created_at).toLocaleDateString();
         const statusBadge = `<span class="admin-badge ${user.status}">${user.status}</span>`;
         const roleBadge = `<span class="admin-badge role-${user.role}">${user.role}</span>`;
+        const isProtected = user.email.toLowerCase() === PROTECTED_ADMIN_EMAIL;
 
         const blockButton = user.status === "active"
             ? `<button class="admin-btn danger" data-action="suspend" data-id="${user.id}">Suspend</button>`
@@ -408,6 +414,10 @@ $conn->close();
         const roleButton = user.role === "admin"
             ? `<button class="admin-btn" data-action="demote" data-id="${user.id}">Remove admin</button>`
             : `<button class="admin-btn" data-action="promote" data-id="${user.id}">Make admin</button>`;
+
+        const actionsCell = isProtected
+            ? `<span style="opacity:.6"><i class="bi bi-shield-lock-fill"></i> Protected account</span>`
+            : `<div class="admin-row-actions">${blockButton}${banButton}${roleButton}</div>`;
 
         const lastPlan = user.last_plan
             ? escapeHtml(user.last_plan)
@@ -428,13 +438,7 @@ $conn->close();
                 <td>${statusBadge}</td>
                 <td>${roleBadge}</td>
                 <td>${joined}</td>
-                <td>
-                    <div class="admin-row-actions">
-                        ${blockButton}
-                        ${banButton}
-                        ${roleButton}
-                    </div>
-                </td>
+                <td>${actionsCell}</td>
             </tr>
         `;
     }
