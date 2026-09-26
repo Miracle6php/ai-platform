@@ -7,6 +7,9 @@ document.addEventListener("DOMContentLoaded", function () {
        ELEMENTS
        ========================================================= */
 
+    const mediaTypeSwitch =
+        document.getElementById("mediaTypeSwitch");
+
     const audioInput =
         document.getElementById("audioInput");
 
@@ -27,6 +30,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const sourceAudio =
         document.getElementById("sourceAudio");
+
+    const sourceVideo =
+        document.getElementById("sourceVideo");
 
     const audioStatus =
         document.getElementById("audioStatus");
@@ -75,9 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const voiceClonePreview =
         document.getElementById("voiceClonePreview");
 
-    const voiceCloneAreaElement =
-        document.getElementById("voiceCloneArea");
-
     const cloneAudio =
         document.getElementById("cloneAudio");
 
@@ -116,9 +119,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const headerCredits =
         document.getElementById("headerCredits");
 
-
-    const validationPanel =
-        document.getElementById("validationPanel");
 
     const validationTitle =
         document.getElementById("validationTitle");
@@ -171,6 +171,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const resultAudio =
         document.getElementById("resultAudio");
 
+    const resultVideo =
+        document.getElementById("resultVideo");
+
     const downloadResultButton =
         document.getElementById("downloadResultButton");
 
@@ -193,16 +196,22 @@ document.addEventListener("DOMContentLoaded", function () {
        ========================================================= */
 
     const MAX_AUDIO_SIZE_MB = 5;
+    const MAX_AUDIO_SIZE = MAX_AUDIO_SIZE_MB * 1024 * 1024;
 
-    const MAX_AUDIO_SIZE =
-        MAX_AUDIO_SIZE_MB * 1024 * 1024;
+    const MAX_VIDEO_SIZE_MB = 25;
+    const MAX_VIDEO_SIZE = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+
+    const MAX_VIDEO_DURATION_SECONDS = 120;
+
+    const VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
+    const VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
 
     /* =========================================================
        STATE
        ========================================================= */
 
-    let selectedAudio = null;
+    let selectedMedia = null; // File object — audio OR video, whichever mode is active
 
     let selectedVoice = null;
 
@@ -210,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let selectedClone = null;
 
-    let audioObjectUrl = null;
+    let mediaObjectUrl = null;
 
     let cloneObjectUrl = null;
 
@@ -219,6 +228,21 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentCloneReferenceId = null;
 
     let indeterminateTimer = null;
+
+
+    /* =========================================================
+       MEDIA MODE HELPERS
+       ========================================================= */
+
+    function getMediaMode() {
+
+        if (!mediaTypeSwitch) {
+            return "audio";
+        }
+
+        return mediaTypeSwitch.getAttribute("data-media-mode") || "audio";
+
+    }
 
 
     /* =========================================================
@@ -314,15 +338,33 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
-    function clearAudioUrl() {
+    function isVideoFile(file) {
 
-        if (audioObjectUrl) {
+        if (!file) {
+            return false;
+        }
+
+        const name = file.name.toLowerCase();
+
+        return (
+            VIDEO_MIME_TYPES.indexOf(file.type) !== -1 ||
+            VIDEO_EXTENSIONS.some(function (ext) {
+                return name.endsWith(ext);
+            })
+        );
+
+    }
+
+
+    function clearMediaUrl() {
+
+        if (mediaObjectUrl) {
 
             URL.revokeObjectURL(
-                audioObjectUrl
+                mediaObjectUrl
             );
 
-            audioObjectUrl = null;
+            mediaObjectUrl = null;
 
         }
 
@@ -345,7 +387,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       AUDIO STATUS
+       STATUS SETTERS
        ========================================================= */
 
     function setAudioStatus(text) {
@@ -372,8 +414,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateValidation() {
 
-        const hasAudio =
-            !!selectedAudio;
+        const hasMedia =
+            !!selectedMedia;
 
         const hasVoice =
             selectedVoiceMode === "library"
@@ -384,9 +426,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (checkAudio) {
 
             checkAudio.innerHTML =
-                hasAudio
-                    ? '<i class="bi bi-check-circle-fill"></i> Source audio'
-                    : '<i class="bi bi-circle"></i> Source audio';
+                hasMedia
+                    ? '<i class="bi bi-check-circle-fill"></i> Source media'
+                    : '<i class="bi bi-circle"></i> Source media';
 
         }
 
@@ -402,7 +444,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         const ready =
-            hasAudio &&
+            hasMedia &&
             hasVoice;
 
 
@@ -418,27 +460,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (validationTitle) {
 
-            if (ready) {
-
-                validationTitle.textContent =
-                    "Ready to transform";
-
-            } else {
-
-                validationTitle.textContent =
-                    "Ready to validate";
-
-            }
+            validationTitle.textContent =
+                ready
+                    ? "Ready to transform"
+                    : "Ready to validate";
 
         }
 
 
         if (validationMessage) {
 
-            if (!hasAudio) {
+            if (!hasMedia) {
 
                 validationMessage.textContent =
-                    "Upload an MP3 audio file to continue.";
+                    getMediaMode() === "video"
+                        ? "Upload a video file to continue."
+                        : "Upload an MP3 audio file to continue.";
 
             } else if (!hasVoice) {
 
@@ -448,7 +485,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } else {
 
                 validationMessage.textContent =
-                    "Your audio and voice model are ready.";
+                    "Your media and voice model are ready.";
 
             }
 
@@ -468,7 +505,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateCreditEstimate() {
 
-        if (!selectedAudio) {
+        if (!selectedMedia) {
 
             if (estimatedCredits) {
                 estimatedCredits.textContent =
@@ -477,7 +514,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (usageEstimateText) {
                 usageEstimateText.textContent =
-                    "Upload audio to calculate usage.";
+                    "Upload audio or video to calculate usage.";
             }
 
             return;
@@ -485,11 +522,14 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
+        const activePlayer =
+            getMediaMode() === "video"
+                ? sourceVideo
+                : sourceAudio;
+
         const duration =
-            Number.isFinite(
-                sourceAudio.duration
-            )
-                ? sourceAudio.duration
+            activePlayer && Number.isFinite(activePlayer.duration)
+                ? activePlayer.duration
                 : 0;
 
 
@@ -536,7 +576,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (usageEstimateText) {
 
             usageEstimateText.textContent =
-                "Estimated from audio duration and output quality.";
+                "Estimated from media duration and output quality.";
 
         }
 
@@ -557,23 +597,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       AUDIO CLEANUP
+       MEDIA CLEANUP (audio OR video, whichever was active)
        ========================================================= */
 
-    function clearAudio() {
+    function clearMedia() {
 
-        selectedAudio = null;
+        selectedMedia = null;
 
-        clearAudioUrl();
+        clearMediaUrl();
 
 
         if (sourceAudio) {
 
             sourceAudio.pause();
-
             sourceAudio.removeAttribute("src");
-
             sourceAudio.load();
+            sourceAudio.classList.add("d-none");
+
+        }
+
+
+        if (sourceVideo) {
+
+            sourceVideo.pause();
+            sourceVideo.removeAttribute("src");
+            sourceVideo.load();
+            sourceVideo.classList.add("d-none");
 
         }
 
@@ -595,7 +644,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (audioFileName) {
             audioFileName.textContent =
-                "voice.mp3";
+                "media file";
         }
 
 
@@ -621,47 +670,74 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       HANDLE AUDIO
+       HANDLE MEDIA (branches on current toggle mode)
        ========================================================= */
 
-    function handleAudio(file) {
+    function handleMedia(file) {
 
         if (!file) {
             return;
         }
 
+        const mode = getMediaMode();
 
-        if (!isMp3(file)) {
 
-            showToast(
-                "Only MP3 audio files are supported."
-            );
+        if (mode === "video") {
 
-            return;
+            if (!isVideoFile(file)) {
+
+                showToast(
+                    "Only MP4, MOV, or WEBM video files are supported."
+                );
+
+                return;
+
+            }
+
+            if (file.size > MAX_VIDEO_SIZE) {
+
+                showToast(
+                    "Video must be " + MAX_VIDEO_SIZE_MB + " MB or smaller."
+                );
+
+                return;
+
+            }
+
+        } else {
+
+            if (!isMp3(file)) {
+
+                showToast(
+                    "Only MP3 audio files are supported."
+                );
+
+                return;
+
+            }
+
+            if (file.size > MAX_AUDIO_SIZE) {
+
+                showToast(
+                    "Audio must be " + MAX_AUDIO_SIZE_MB + " MB or smaller."
+                );
+
+                return;
+
+            }
 
         }
 
 
-        if (file.size > MAX_AUDIO_SIZE) {
-
-            showToast(
-                "Audio must be 5 MB or smaller."
-            );
-
-            return;
-
-        }
+        clearMedia();
 
 
-        clearAudio();
+        selectedMedia = file;
 
 
-        selectedAudio = file;
+        clearMediaUrl();
 
-
-        clearAudioUrl();
-
-        audioObjectUrl =
+        mediaObjectUrl =
             URL.createObjectURL(file);
 
 
@@ -708,74 +784,107 @@ document.addEventListener("DOMContentLoaded", function () {
         setAudioStatus("Loading");
 
 
-        sourceAudio.src =
-            audioObjectUrl;
+        const activePlayer =
+            mode === "video" ? sourceVideo : sourceAudio;
 
-        sourceAudio.load();
+        const inactivePlayer =
+            mode === "video" ? sourceAudio : sourceVideo;
 
 
-        sourceAudio.addEventListener(
-            "loadedmetadata",
-            function handleMetadata() {
+        if (inactivePlayer) {
+            inactivePlayer.classList.add("d-none");
+        }
 
-                const duration =
-                    formatDuration(
-                        sourceAudio.duration
+        if (activePlayer) {
+
+            activePlayer.classList.remove("d-none");
+
+            activePlayer.src = mediaObjectUrl;
+            activePlayer.load();
+
+            activePlayer.addEventListener(
+                "loadedmetadata",
+                function handleMetadata() {
+
+                    const duration =
+                        formatDuration(
+                            activePlayer.duration
+                        );
+
+
+                    if (mode === "video" && activePlayer.duration > MAX_VIDEO_DURATION_SECONDS) {
+
+                        showToast(
+                            "Video must be " +
+                            Math.floor(MAX_VIDEO_DURATION_SECONDS / 60) +
+                            " minutes or shorter."
+                        );
+
+                        clearMedia();
+
+                        return;
+
+                    }
+
+
+                    if (audioFileMeta) {
+
+                        audioFileMeta.textContent =
+                            fileSize +
+                            " · " +
+                            duration;
+
+                    }
+
+
+                    if (audioFileDetails) {
+
+                        audioFileDetails.textContent =
+                            fileSize +
+                            " · " +
+                            duration;
+
+                    }
+
+
+                    setAudioStatus("Ready");
+
+                    updateCreditEstimate();
+
+                    updateValidation();
+
+                },
+                {
+                    once: true
+                }
+            );
+
+
+            activePlayer.addEventListener(
+                "error",
+                function () {
+
+                    setAudioStatus("Error");
+
+                    showToast(
+                        mode === "video"
+                            ? "This video could not be played by your browser."
+                            : "This MP3 could not be played by your browser."
                     );
 
-
-                if (audioFileMeta) {
-
-                    audioFileMeta.textContent =
-                        fileSize +
-                        " · " +
-                        duration;
-
+                },
+                {
+                    once: true
                 }
+            );
 
-
-                if (audioFileDetails) {
-
-                    audioFileDetails.textContent =
-                        fileSize +
-                        " · " +
-                        duration;
-
-                }
-
-
-                setAudioStatus("Ready");
-
-                updateCreditEstimate();
-
-                updateValidation();
-
-            },
-            {
-                once: true
-            }
-        );
-
-
-        sourceAudio.addEventListener(
-            "error",
-            function () {
-
-                setAudioStatus("Error");
-
-                showToast(
-                    "This MP3 could not be played by your browser."
-                );
-
-            },
-            {
-                once: true
-            }
-        );
+        }
 
 
         showToast(
-            "MP3 audio loaded successfully."
+            mode === "video"
+                ? "Video loaded successfully."
+                : "MP3 audio loaded successfully."
         );
 
         updateValidation();
@@ -784,7 +893,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       AUDIO INPUT
+       MEDIA INPUT
        ========================================================= */
 
     if (selectAudioButton) {
@@ -813,7 +922,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     audioInput.files &&
                     audioInput.files[0];
 
-                handleAudio(file);
+                handleMedia(file);
 
             }
         );
@@ -827,9 +936,8 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                if (sourceAudio) {
-                    sourceAudio.pause();
-                }
+                if (sourceAudio) sourceAudio.pause();
+                if (sourceVideo) sourceVideo.pause();
 
                 if (audioInput) {
                     audioInput.value = "";
@@ -848,10 +956,10 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                clearAudio();
+                clearMedia();
 
                 showToast(
-                    "Source audio removed."
+                    "Source media removed."
                 );
 
             }
@@ -861,7 +969,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       AUDIO DRAG AND DROP
+       MEDIA MODE CHANGE — clear whatever was loaded under the old mode
+       ========================================================= */
+
+    if (mediaTypeSwitch) {
+
+        mediaTypeSwitch.addEventListener(
+            "mediamodechange",
+            function () {
+
+                if (selectedMedia) {
+
+                    clearMedia();
+
+                    showToast(
+                        "Switched mode — please upload again."
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       DRAG AND DROP
        ========================================================= */
 
     if (audioUploadArea) {
@@ -908,7 +1042,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     event.dataTransfer.files[0];
 
 
-                handleAudio(file);
+                handleMedia(file);
 
             }
         );
@@ -928,90 +1062,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (mode === "library") {
 
-            if (libraryVoiceButton) {
-
-                libraryVoiceButton.classList.add(
-                    "active"
-                );
-
-            }
-
-
-            if (cloneVoiceButton) {
-
-                cloneVoiceButton.classList.remove(
-                    "active"
-                );
-
-            }
-
-
-            if (voiceLibrary) {
-
-                voiceLibrary.classList.remove(
-                    "d-none"
-                );
-
-            }
-
-
-            if (voiceCloneArea) {
-
-                voiceCloneArea.classList.add(
-                    "d-none"
-                );
-
-            }
-
+            if (libraryVoiceButton) libraryVoiceButton.classList.add("active");
+            if (cloneVoiceButton) cloneVoiceButton.classList.remove("active");
+            if (voiceLibrary) voiceLibrary.classList.remove("d-none");
+            if (voiceCloneArea) voiceCloneArea.classList.add("d-none");
 
             setVoiceStatus(
-                selectedVoice
-                    ? "Selected"
-                    : "Waiting"
+                selectedVoice ? "Selected" : "Waiting"
             );
 
         } else {
 
-            if (libraryVoiceButton) {
-
-                libraryVoiceButton.classList.remove(
-                    "active"
-                );
-
-            }
-
-
-            if (cloneVoiceButton) {
-
-                cloneVoiceButton.classList.add(
-                    "active"
-                );
-
-            }
-
-
-            if (voiceLibrary) {
-
-                voiceLibrary.classList.add(
-                    "d-none"
-                );
-
-            }
-
-
-            if (voiceCloneArea) {
-
-                voiceCloneArea.classList.remove(
-                    "d-none"
-                );
-
-            }
-
+            if (libraryVoiceButton) libraryVoiceButton.classList.remove("active");
+            if (cloneVoiceButton) cloneVoiceButton.classList.add("active");
+            if (voiceLibrary) voiceLibrary.classList.add("d-none");
+            if (voiceCloneArea) voiceCloneArea.classList.remove("d-none");
 
             setVoiceStatus(
-                selectedClone
-                    ? "Selected"
-                    : "Waiting"
+                selectedClone ? "Selected" : "Waiting"
             );
 
         }
@@ -1024,28 +1092,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (libraryVoiceButton) {
 
-        libraryVoiceButton.addEventListener(
-            "click",
-            function () {
-
-                setVoiceMode("library");
-
-            }
-        );
+        libraryVoiceButton.addEventListener("click", function () {
+            setVoiceMode("library");
+        });
 
     }
 
 
     if (cloneVoiceButton) {
 
-        cloneVoiceButton.addEventListener(
-            "click",
-            function () {
-
-                setVoiceMode("clone");
-
-            }
-        );
+        cloneVoiceButton.addEventListener("click", function () {
+            setVoiceMode("clone");
+        });
 
     }
 
@@ -1061,49 +1119,24 @@ document.addEventListener("DOMContentLoaded", function () {
                 "click",
                 function () {
 
-                    voiceCards.forEach(
-                        function (item) {
+                    voiceCards.forEach(function (item) {
+                        item.classList.remove("selected");
+                    });
 
-                            item.classList.remove(
-                                "selected"
-                            );
-
-                        }
-                    );
-
-
-                    card.classList.add(
-                        "selected"
-                    );
-
+                    card.classList.add("selected");
 
                     selectedVoice =
-                        card.dataset.voiceId ||
-                        null;
-
+                        card.dataset.voiceId || null;
 
                     const nameElement =
-                        card.querySelector(
-                            ".voice-card-info strong"
-                        );
-
+                        card.querySelector(".voice-card-info strong");
 
                     const voiceName =
-                        nameElement
-                            ? nameElement.textContent.trim()
-                            : "Voice";
+                        nameElement ? nameElement.textContent.trim() : "Voice";
 
+                    setVoiceStatus(voiceName);
 
-                    setVoiceStatus(
-                        voiceName
-                    );
-
-
-                    showToast(
-                        voiceName +
-                        " selected."
-                    );
-
+                    showToast(voiceName + " selected.");
 
                     updateValidation();
 
@@ -1118,13 +1151,10 @@ document.addEventListener("DOMContentLoaded", function () {
        VOICE LIBRARY — preview playback
        ========================================================= */
 
-    // One shared <audio> element reused for every preview, so starting
-    // a new preview automatically stops whatever was playing before.
     const voicePreviewAudio = new Audio();
     let currentPreviewButton = null;
 
     function setPlayIcon(playButton, state) {
-        // state: "idle" | "loading" | "playing"
         if (!playButton) return;
 
         playButton.dataset.state = state;
@@ -1156,7 +1186,6 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Clicking the currently-playing voice's play button again = stop.
         if (currentPreviewButton === playButton && !voicePreviewAudio.paused) {
             stopCurrentPreview();
             return;
@@ -1188,13 +1217,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!playButton) return;
 
         playButton.addEventListener("click", function (event) {
-
-            // Don't also trigger the card's own selection handler —
-            // preview and select are separate actions.
             event.stopPropagation();
-
             playPreview(card, playButton);
-
         });
 
     });
@@ -1210,9 +1234,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         selectedClone = null;
 
-        // A new sample means any previously uploaded reference on the
-        // server is stale — force a fresh upload via
-        // ensureCloneReference() next time.
         currentCloneReferenceId = null;
 
         clearCloneUrl();
@@ -1221,9 +1242,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (cloneAudio) {
 
             cloneAudio.pause();
-
             cloneAudio.removeAttribute("src");
-
             cloneAudio.load();
 
         }
@@ -1235,52 +1254,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         if (voiceClonePreview) {
-
-            voiceClonePreview.classList.add(
-                "d-none"
-            );
-
+            voiceClonePreview.classList.add("d-none");
         }
 
 
         if (cloneFileRow) {
-
-            cloneFileRow.classList.add(
-                "d-none"
-            );
-
+            cloneFileRow.classList.add("d-none");
         }
 
 
         if (cloneFileName) {
-
-            cloneFileName.textContent =
-                "voice-sample.mp3";
-
+            cloneFileName.textContent = "voice-sample.mp3";
         }
 
 
         if (cloneFileMeta) {
-
-            cloneFileMeta.textContent =
-                "0 MB · 0:00";
-
+            cloneFileMeta.textContent = "0 MB · 0:00";
         }
 
 
         if (cloneFileRowName) {
-
-            cloneFileRowName.textContent =
-                "voice-sample.mp3";
-
+            cloneFileRowName.textContent = "voice-sample.mp3";
         }
 
 
         if (cloneFileRowMeta) {
-
-            cloneFileRowMeta.textContent =
-                "0 MB";
-
+            cloneFileRowMeta.textContent = "0 MB";
         }
 
 
@@ -1316,7 +1315,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (file.size > MAX_AUDIO_SIZE) {
 
             showToast(
-                "Voice sample must be 5 MB or smaller."
+                "Voice sample must be " + MAX_AUDIO_SIZE_MB + " MB or smaller."
             );
 
             return;
@@ -1341,59 +1340,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         if (cloneFileName) {
-
-            cloneFileName.textContent =
-                file.name;
-
+            cloneFileName.textContent = file.name;
         }
 
 
         if (cloneFileMeta) {
-
-            cloneFileMeta.textContent =
-                fileSize +
-                " · Loading...";
-
+            cloneFileMeta.textContent = fileSize + " · Loading...";
         }
 
 
         if (cloneFileRowName) {
-
-            cloneFileRowName.textContent =
-                file.name;
-
+            cloneFileRowName.textContent = file.name;
         }
 
 
         if (cloneFileRowMeta) {
-
-            cloneFileRowMeta.textContent =
-                fileSize;
-
+            cloneFileRowMeta.textContent = fileSize;
         }
 
 
         if (voiceClonePreview) {
-
-            voiceClonePreview.classList.remove(
-                "d-none"
-            );
-
+            voiceClonePreview.classList.remove("d-none");
         }
 
 
         if (cloneFileRow) {
-
-            cloneFileRow.classList.remove(
-                "d-none"
-            );
-
+            cloneFileRow.classList.remove("d-none");
         }
 
 
-        cloneAudio.src =
-            cloneObjectUrl;
-
+        cloneAudio.src = cloneObjectUrl;
         cloneAudio.load();
 
 
@@ -1406,9 +1382,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     cloneFileMeta.textContent =
                         fileSize +
                         " · " +
-                        formatDuration(
-                            cloneAudio.duration
-                        );
+                        formatDuration(cloneAudio.duration);
 
                 }
 
@@ -1417,9 +1391,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 updateValidation();
 
             },
-            {
-                once: true
-            }
+            { once: true }
         );
 
 
@@ -1434,16 +1406,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
 
             },
-            {
-                once: true
-            }
+            { once: true }
         );
 
 
-        showToast(
-            "Voice sample loaded."
-        );
-
+        showToast("Voice sample loaded.");
 
         updateValidation();
 
@@ -1456,76 +1423,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (selectVoiceCloneButton) {
 
-        selectVoiceCloneButton.addEventListener(
-            "click",
-            function () {
-
-                if (voiceCloneInput) {
-                    voiceCloneInput.click();
-                }
-
-            }
-        );
+        selectVoiceCloneButton.addEventListener("click", function () {
+            if (voiceCloneInput) voiceCloneInput.click();
+        });
 
     }
 
 
     if (voiceCloneInput) {
 
-        voiceCloneInput.addEventListener(
-            "change",
-            function () {
+        voiceCloneInput.addEventListener("change", function () {
 
-                const file =
-                    voiceCloneInput.files &&
-                    voiceCloneInput.files[0];
+            const file =
+                voiceCloneInput.files &&
+                voiceCloneInput.files[0];
 
-                handleClone(file);
+            handleClone(file);
 
-            }
-        );
+        });
 
     }
 
 
     if (replaceVoiceCloneButton) {
 
-        replaceVoiceCloneButton.addEventListener(
-            "click",
-            function () {
+        replaceVoiceCloneButton.addEventListener("click", function () {
 
-                if (cloneAudio) {
-                    cloneAudio.pause();
-                }
+            if (cloneAudio) cloneAudio.pause();
 
-                if (voiceCloneInput) {
-
-                    voiceCloneInput.value = "";
-
-                    voiceCloneInput.click();
-
-                }
-
+            if (voiceCloneInput) {
+                voiceCloneInput.value = "";
+                voiceCloneInput.click();
             }
-        );
+
+        });
 
     }
 
 
     if (removeVoiceCloneButton) {
 
-        removeVoiceCloneButton.addEventListener(
-            "click",
-            function () {
+        removeVoiceCloneButton.addEventListener("click", function () {
 
-                clearClone();
+            clearClone();
 
-                showToast(
-                    "Voice sample removed."
-                );
+            showToast("Voice sample removed.");
 
-            }
-        );
+        });
 
     }
 
@@ -1535,32 +1479,15 @@ document.addEventListener("DOMContentLoaded", function () {
        ========================================================= */
 
     if (qualitySelect) {
-
-        qualitySelect.addEventListener(
-            "change",
-            updateCreditEstimate
-        );
-
+        qualitySelect.addEventListener("change", updateCreditEstimate);
     }
-
 
     if (pitchSelect) {
-
-        pitchSelect.addEventListener(
-            "change",
-            updateValidation
-        );
-
+        pitchSelect.addEventListener("change", updateValidation);
     }
 
-
     if (stabilitySelect) {
-
-        stabilitySelect.addEventListener(
-            "change",
-            updateValidation
-        );
-
+        stabilitySelect.addEventListener("change", updateValidation);
     }
 
 
@@ -1590,14 +1517,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function startIndeterminateProgress() {
 
-        // No real progress updates come back from a single blocking
-        // fetch() — this fakes gradual movement so the bar doesn't sit
-        // frozen at 0% for however long conversion takes. It never
-        // claims 100% until the real response lands.
         stopIndeterminateProgress();
 
         let value = 5;
-        updateProcessing(value, "Uploading and converting...");
+
+        updateProcessing(
+            value,
+            getMediaMode() === "video"
+                ? "Uploading and converting your video..."
+                : "Uploading and converting..."
+        );
 
         indeterminateTimer = setInterval(function () {
             value = Math.min(90, value + Math.random() * 4);
@@ -1654,7 +1583,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const formData = new FormData();
 
-        formData.append("source_audio", selectedAudio);
+        const mode = getMediaMode();
+
+        formData.append("media_mode", mode);
+
+        if (mode === "video") {
+            formData.append("source_video", selectedMedia);
+        } else {
+            formData.append("source_audio", selectedMedia);
+        }
+
         formData.append("voice_mode", selectedVoiceMode);
 
         if (selectedVoiceMode === "library") {
@@ -1683,8 +1621,20 @@ document.addEventListener("DOMContentLoaded", function () {
         if (generateButton) generateButton.disabled = true;
         if (generateNormal) generateNormal.classList.add("d-none");
         if (generateLoading) generateLoading.classList.remove("d-none");
-        if (processingTitle) processingTitle.textContent = "Transforming your voice";
-        if (processingMessage) processingMessage.textContent = "This can take a moment — converting your audio...";
+
+        const mode = getMediaMode();
+
+        if (processingTitle) {
+            processingTitle.textContent =
+                mode === "video" ? "Transforming your video's voice" : "Transforming your voice";
+        }
+
+        if (processingMessage) {
+            processingMessage.textContent =
+                mode === "video"
+                    ? "This can take a moment — extracting, converting, and re-combining audio..."
+                    : "This can take a moment — converting your audio...";
+        }
 
         startIndeterminateProgress();
 
@@ -1724,13 +1674,36 @@ document.addEventListener("DOMContentLoaded", function () {
     function handleJobCompleted(data) {
 
         if (processingTitle) processingTitle.textContent = "Transformation complete";
-        if (processingMessage) processingMessage.textContent = "Your transformed voice is ready.";
+        if (processingMessage) processingMessage.textContent = "Your transformed result is ready.";
         if (generateLoading) generateLoading.classList.add("d-none");
         if (generateNormal) generateNormal.classList.remove("d-none");
 
-        if (resultAudio && data.result_url) {
-            resultAudio.src = data.result_url;
-            resultAudio.load();
+        const isVideoResult = data.media_mode === "video";
+
+        if (isVideoResult) {
+
+            if (resultVideo && data.result_url) {
+                resultVideo.classList.remove("d-none");
+                resultVideo.src = data.result_url;
+                resultVideo.load();
+            }
+
+            if (resultAudio) {
+                resultAudio.classList.add("d-none");
+            }
+
+        } else {
+
+            if (resultAudio && data.result_url) {
+                resultAudio.classList.remove("d-none");
+                resultAudio.src = data.result_url;
+                resultAudio.load();
+            }
+
+            if (resultVideo) {
+                resultVideo.classList.add("d-none");
+            }
+
         }
 
         if (typeof data.credits_balance === "number") {
@@ -1744,7 +1717,7 @@ document.addEventListener("DOMContentLoaded", function () {
         setTimeout(function () {
             if (processingPanel) processingPanel.classList.add("d-none");
             if (resultPanel) resultPanel.classList.remove("d-none");
-            showToast("Voice transformation complete.");
+            showToast(isVideoResult ? "Video voice transformation complete." : "Voice transformation complete.");
             updateValidation();
         }, 500);
 
@@ -1761,9 +1734,16 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                if (!selectedAudio) {
-                    showToast("Upload an MP3 audio file first.");
+                if (!selectedMedia) {
+
+                    showToast(
+                        getMediaMode() === "video"
+                            ? "Upload a video file first."
+                            : "Upload an MP3 audio file first."
+                    );
+
                     return;
+
                 }
 
                 const hasVoice =
@@ -1795,7 +1775,12 @@ document.addEventListener("DOMContentLoaded", function () {
             "click",
             function () {
 
-                if (!resultAudio || !resultAudio.src) {
+                const activeResult =
+                    resultVideo && !resultVideo.classList.contains("d-none")
+                        ? resultVideo
+                        : resultAudio;
+
+                if (!activeResult || !activeResult.src) {
 
                     showToast(
                         "No result is available yet."
@@ -1805,31 +1790,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 }
 
+                const isVideo = activeResult === resultVideo;
 
                 const link =
                     document.createElement("a");
 
-
-                link.href =
-                    resultAudio.src;
+                link.href = activeResult.src;
 
                 link.download =
-                    "aistudio-voice-result.mp3";
+                    isVideo
+                        ? "aistudio-voice-result.mp4"
+                        : "aistudio-voice-result.mp3";
 
-
-                document.body.appendChild(
-                    link
-                );
-
+                document.body.appendChild(link);
 
                 link.click();
 
                 link.remove();
 
-
-                showToast(
-                    "Download started."
-                );
+                showToast("Download started.");
 
             }
         );
@@ -1869,7 +1848,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 stopIndeterminateProgress();
 
-                clearAudio();
+                clearMedia();
 
                 clearClone();
 
@@ -1877,72 +1856,34 @@ document.addEventListener("DOMContentLoaded", function () {
                 selectedVoice = null;
 
 
-                voiceCards.forEach(
-                    function (card) {
-
-                        card.classList.remove(
-                            "selected"
-                        );
-
-                    }
-                );
+                voiceCards.forEach(function (card) {
+                    card.classList.remove("selected");
+                });
 
 
                 setVoiceMode("library");
 
 
                 if (resultAudio) {
-
                     resultAudio.pause();
-
-                    resultAudio.removeAttribute(
-                        "src"
-                    );
-
+                    resultAudio.removeAttribute("src");
                     resultAudio.load();
+                }
 
+                if (resultVideo) {
+                    resultVideo.pause();
+                    resultVideo.removeAttribute("src");
+                    resultVideo.load();
                 }
 
 
-                if (processingPanel) {
-
-                    processingPanel.classList.add(
-                        "d-none"
-                    );
-
-                }
+                if (processingPanel) processingPanel.classList.add("d-none");
+                if (resultPanel) resultPanel.classList.add("d-none");
+                if (generateNormal) generateNormal.classList.remove("d-none");
+                if (generateLoading) generateLoading.classList.add("d-none");
 
 
-                if (resultPanel) {
-
-                    resultPanel.classList.add(
-                        "d-none"
-                    );
-
-                }
-
-
-                if (generateNormal) {
-
-                    generateNormal.classList.remove(
-                        "d-none"
-                    );
-
-                }
-
-
-                if (generateLoading) {
-
-                    generateLoading.classList.add(
-                        "d-none"
-                    );
-
-                }
-
-
-                showToast(
-                    "Ready for a new transformation."
-                );
+                showToast("Ready for a new transformation.");
 
 
                 updateValidation();
@@ -1954,51 +1895,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =========================================================
-       AUDIO SEEKING
+       MEDIA PLAYER STATUS (audio + video)
        ========================================================= */
 
-    sourceAudio.addEventListener(
-        "waiting",
-        function () {
+    [sourceAudio, sourceVideo].forEach(function (player) {
 
+        if (!player) return;
+
+        player.addEventListener("waiting", function () {
             setAudioStatus("Buffering");
+        });
 
-        }
-    );
-
-
-    sourceAudio.addEventListener(
-        "playing",
-        function () {
-
+        player.addEventListener("playing", function () {
             setAudioStatus("Playing");
+        });
 
-        }
-    );
+        player.addEventListener("pause", function () {
+            if (selectedMedia) setAudioStatus("Ready");
+        });
 
-
-    sourceAudio.addEventListener(
-        "pause",
-        function () {
-
-            if (selectedAudio) {
-
-                setAudioStatus("Ready");
-
-            }
-
-        }
-    );
-
-
-    sourceAudio.addEventListener(
-        "ended",
-        function () {
-
+        player.addEventListener("ended", function () {
             setAudioStatus("Ready");
+        });
 
-        }
-    );
+    });
 
 
     /* =========================================================
@@ -2007,7 +1927,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setVoiceMode("library");
 
-    clearAudio();
+    clearMedia();
 
     clearClone();
 
@@ -2022,8 +1942,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.voiceStudioDebug = {
 
-        getSelectedAudio: function () {
-            return selectedAudio;
+        getSelectedMedia: function () {
+            return selectedMedia;
         },
 
         getSelectedVoice: function () {
@@ -2038,7 +1958,9 @@ document.addEventListener("DOMContentLoaded", function () {
             return selectedVoiceMode;
         },
 
-        clearAudio: clearAudio,
+        getMediaMode: getMediaMode,
+
+        clearMedia: clearMedia,
 
         clearClone: clearClone,
 
