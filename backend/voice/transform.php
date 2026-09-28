@@ -1,31 +1,25 @@
 <?php
 
 /**
- * backend/voice/transform.php — ElevenLabs Speech-to-Speech version
+ * backend/voice/transform.php — ElevenLabs Speech-to-Speech
  *
- * Two source modes now:
+ * AUDIO mode (synchronous, unchanged): upload MP3 -> ElevenLabs ->
+ * result returned in the same response.
  *
- *   AUDIO mode (unchanged):
- *     1. Receive source audio upload (MP3, max 5MB)
- *     2. Resolve chosen voice -> ElevenLabs voice_id
- *     3. POST straight to ElevenLabs /speech-to-speech/{voice_id}
- *     4. Apply local pitch shift via ffmpeg if requested
- *     5. Save, charge credits, return the result URL
+ * VIDEO mode (asynchronous): the slow work (extract audio, ElevenLabs,
+ * re-mux) can exceed the hosting proxy's request timeout, so it now
+ * follows the same pattern as Face Studio:
  *
- *   VIDEO mode (new):
- *     1. Receive source video upload (MP4/MOV/WEBM, max 25MB, max 2 min)
- *     2. Extract the audio track with ffmpeg
- *     3. Run that extracted audio through the SAME ElevenLabs call as
- *        audio mode
- *     4. Re-mux the converted audio back onto the ORIGINAL video track
- *        with ffmpeg (video untouched, only the audio track is swapped)
- *     5. Save, charge credits, return the result URL (a video this time)
+ *   action=submit  -> validates, saves the upload, creates a job row,
+ *                     starts process-video-job.php in the background,
+ *                     and returns a job_id immediately.
+ *   action=status  -> polled by the browser; reports progress and, when
+ *                     finished, the result URL.
+ *   action=download-> serves the finished file.
  *
- *   NOTE: this does NOT lip-sync the video — Speech-to-Speech keeps
- *   roughly the same timing/words as the original recording, so mouth
- *   movements should stay close, but they will not be regenerated to
- *   match the new audio frame-by-frame. That's a separate feature
- *   (Sync Labs) to be added later.
+ * NOTE: this does not lip-sync the video. Speech-to-Speech keeps the
+ * original words/timing, so mouth movement stays close but is not
+ * regenerated. Lip-sync (Sync Labs) is a later feature.
  */
 
 session_start();
@@ -41,9 +35,16 @@ if (
     exit;
 }
 
+$userId = (int) $_SESSION['user_id'];
+
+// Release the session lock so polling requests are never blocked
+// behind a long-running request from the same user.
+session_write_close();
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/dns_workaround.php';
+require_once __DIR__ . '/media-helpers.php';
 
 const MAX_AUDIO_SIZE = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 25 * 1024 * 1024;
@@ -61,11 +62,6 @@ const ALLOWED_VIDEO_MIMES = [
     'video/webm',
 ];
 
-/**
- * Shared with voice-studio.php via library-voices-config.php — fill in
- * real elevenlabs_voice_id values there (run list-available-voices.php
- * first to get them).
- */
 $libraryVoicesConfig = require __DIR__ . '/library-voices-config.php';
 
 foreach ([UPLOAD_DIR, RESULT_DIR, WORK_DIR] as $dir) {
@@ -74,7 +70,6 @@ foreach ([UPLOAD_DIR, RESULT_DIR, WORK_DIR] as $dir) {
     }
 }
 
-$userId = (int) $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? 'submit';
 
 function fail(int $code, string $message): void
@@ -82,214 +77,6 @@ function fail(int $code, string $message): void
     http_response_code($code);
     echo json_encode(['error' => $message]);
     exit;
-}
-
-function elevenLabsApiKey(): string
-{
-    $key = getenv('ELEVENLABS_API_KEY');
-    if (!$key) {
-        fail(500, 'Server misconfigured: ELEVENLABS_API_KEY is not set.');
-    }
-    return $key;
-}
-
-function estimateVoiceCredits(float $durationSeconds, string $quality): int
-{
-    $credits = max(5, (int) ceil($durationSeconds / 10));
-    if ($quality === 'high') {
-        $credits = (int) ceil($credits * 1.5);
-    } elseif ($quality === 'premium') {
-        $credits = (int) ceil($credits * 2);
-    }
-    return $credits;
-}
-
-function newUuid(): string
-{
-    return sprintf(
-        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0x0fff) | 0x4000,
-        mt_rand(0, 0x3fff) | 0x8000,
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-    );
-}
-
-/**
- * Runs an ffmpeg command, returns true on success. Logs stderr to the
- * PHP error log on failure so problems are visible without exposing
- * ffmpeg internals to the client.
- */
-function runFfmpeg(string $command): bool
-{
-    exec($command, $output, $exitCode);
-
-    if ($exitCode !== 0) {
-        error_log('ffmpeg failed: ' . $command . "\n" . implode("\n", $output));
-    }
-
-    return $exitCode === 0;
-}
-
-/**
- * Reads duration in seconds for a media file via ffprobe.
- * Returns 0.0 if it can't be determined.
- */
-function probeDurationSeconds(string $path): float
-{
-    $escapedPath = escapeshellarg($path);
-
-    $command = "ffprobe -v error -show_entries format=duration "
-        . "-of default=noprint_wrappers=1:nokey=1 $escapedPath";
-
-    exec($command, $output, $exitCode);
-
-    if ($exitCode !== 0 || empty($output)) {
-        return 0.0;
-    }
-
-    return (float) trim($output[0]);
-}
-
-/**
- * Extracts the audio track from a video into a standalone MP3.
- * Returns true on success.
- */
-function extractAudioFromVideo(string $videoPath, string $outputMp3Path): bool
-{
-    $escapedInput = escapeshellarg($videoPath);
-    $escapedOutput = escapeshellarg($outputMp3Path);
-
-    // -vn: drop video. -acodec libmp3lame: encode to mp3 so it matches
-    // what elevenLabsSpeechToSpeech() already expects to upload.
-    $command = "ffmpeg -y -i $escapedInput -vn -acodec libmp3lame "
-        . "-q:a 2 $escapedOutput 2>&1";
-
-    return runFfmpeg($command);
-}
-
-/**
- * Re-muxes a new audio track onto the original video's video stream.
- * Video is copied without re-encoding (fast, no quality loss); audio
- * is re-encoded to AAC for broad video-container compatibility.
- * If the new audio is shorter than the video, -shortest trims output
- * to the shorter of the two rather than leaving trailing silence/video
- * mismatch.
- */
-function remuxAudioOntoVideo(string $videoPath, string $audioPath, string $outputPath): bool
-{
-    $escapedVideo = escapeshellarg($videoPath);
-    $escapedAudio = escapeshellarg($audioPath);
-    $escapedOutput = escapeshellarg($outputPath);
-
-    $command = "ffmpeg -y -i $escapedVideo -i $escapedAudio "
-        . "-map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "
-        . "-shortest $escapedOutput 2>&1";
-
-    return runFfmpeg($command);
-}
-
-/**
- * Applies a pitch shift to an existing audio file in place, using
- * ffmpeg's asetrate/atempo trick (changes pitch while correcting
- * playback speed back to normal). Requires ffmpeg on the server.
- *
- * 'lower'/'higher' map to roughly a minor third (-3/+3 semitones).
- */
-function applyPitchShift(string $path, string $pitch): void
-{
-    if ($pitch === 'natural') {
-        return;
-    }
-
-    $semitoneShift = $pitch === 'higher' ? 3 : -3;
-    $rateFactor = pow(2, $semitoneShift / 12);
-    $atempoFactor = 1 / $rateFactor;
-
-    $filter = sprintf(
-        'asetrate=44100*%F,aresample=44100,atempo=%F',
-        $rateFactor,
-        $atempoFactor
-    );
-
-    $tempPath = $path . '.pitched.mp3';
-    $escapedInput = escapeshellarg($path);
-    $escapedOutput = escapeshellarg($tempPath);
-    $escapedFilter = escapeshellarg($filter);
-
-    $command = "ffmpeg -y -i $escapedInput -af $escapedFilter -codec:a libmp3lame -q:a 2 $escapedOutput 2>&1";
-    exec($command, $output, $exitCode);
-
-    if ($exitCode === 0 && file_exists($tempPath)) {
-        rename($tempPath, $path);
-    } else {
-        // Non-fatal — ship the unshifted result rather than fail the
-        // whole job over a cosmetic setting.
-        @unlink($tempPath);
-    }
-}
-
-/**
- * Calls ElevenLabs Speech-to-Speech: your audio in, converted audio out.
- * Returns ['audio_bytes' => string].
- */
-function elevenLabsSpeechToSpeech(string $sourcePath, string $voiceId, string $stability): array
-{
-    $stabilityMap = [
-        'stable' => 0.75,
-        'balanced' => 0.5,
-        'expressive' => 0.25,
-    ];
-    $stabilityValue = $stabilityMap[$stability] ?? 0.5;
-
-    $voiceSettings = json_encode([
-        'stability' => $stabilityValue,
-        'similarity_boost' => 0.75,
-    ]);
-
-    $ch = curl_init(
-        'https://api.elevenlabs.io/v1/speech-to-speech/' . urlencode($voiceId)
-        . '?output_format=mp3_44100_128'
-    );
-    apply_dns_workaround($ch, 'api.elevenlabs.io');
-
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => [
-            'audio' => new CURLFile($sourcePath, 'audio/mpeg', 'source.mp3'),
-            'model_id' => 'eleven_multilingual_sts_v2',
-            'voice_settings' => $voiceSettings,
-        ],
-        CURLOPT_HTTPHEADER => ['xi-api-key: ' . elevenLabsApiKey()],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 120,
-        CURLOPT_HEADER => false,
-    ]);
-
-    $response = curl_exec($ch);
-
-    if ($response === false) {
-        $error = curl_error($ch);
-        curl_close($ch);
-        throw new RuntimeException("Could not reach ElevenLabs: $error");
-    }
-
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-    curl_close($ch);
-
-    if ($httpCode !== 200) {
-        $data = json_decode($response, true);
-        $detail = $data['detail']['message'] ?? $response;
-        throw new RuntimeException("ElevenLabs conversion failed (HTTP $httpCode): $detail");
-    }
-
-    if (strpos((string) $contentType, 'audio') === false) {
-        throw new RuntimeException('Unexpected response from ElevenLabs (not audio).');
-    }
-
-    return ['audio_bytes' => $response];
 }
 
 // =======================================================================
@@ -301,12 +88,6 @@ if ($action === 'submit') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         fail(405, 'Method not allowed');
     }
-
-    // -------------------------------------------------------------
-    // Determine media mode: 'audio' (existing) or 'video' (new).
-    // Defaults to 'audio' so old clients that never send this field
-    // keep working exactly as before.
-    // -------------------------------------------------------------
 
     $mediaMode = $_POST['media_mode'] ?? 'audio';
 
@@ -376,7 +157,7 @@ if ($action === 'submit') {
     $jobId = newUuid();
 
     // ===================================================================
-    // VIDEO MODE
+    // VIDEO MODE — validate fast, queue the job, return immediately
     // ===================================================================
 
     if ($mediaMode === 'video') {
@@ -416,8 +197,7 @@ if ($action === 'submit') {
             fail(500, 'Could not store uploaded file.');
         }
 
-        // ---- duration check (real, via ffprobe — not client-trusted) ---
-
+        // ffprobe only reads the file header — fast, safe to do here.
         $videoDuration = probeDurationSeconds($sourceVideoPath);
 
         if ($videoDuration <= 0) {
@@ -430,10 +210,10 @@ if ($action === 'submit') {
             fail(400, 'Video must be ' . (int) (MAX_VIDEO_DURATION_SECONDS / 60) . ' minutes or shorter.');
         }
 
-        // ---- credits check up front, before spending time on ffmpeg ---
-
         $estimatedCredits = estimateVoiceCredits($videoDuration, $quality);
 
+        // Early balance check for fast feedback. Credits are only
+        // actually deducted by the worker once the job succeeds.
         $stmt = $conn->prepare('SELECT credits_balance FROM users WHERE id = ? LIMIT 1');
         $stmt->bind_param('i', $userId);
         $stmt->execute();
@@ -445,108 +225,56 @@ if ($action === 'submit') {
             fail(402, 'Not enough credits for this transformation.');
         }
 
-        // ---- extract audio track ---------------------------------------
-
-        $extractedAudioPath = WORK_DIR . $jobId . '.extracted.mp3';
-
-        if (!extractAudioFromVideo($sourceVideoPath, $extractedAudioPath)) {
-            @unlink($sourceVideoPath);
-            fail(500, 'Could not extract audio from the video. It may have no audio track.');
-        }
-
-        // ---- convert extracted audio via ElevenLabs ----------------------
-
-        try {
-            $result = elevenLabsSpeechToSpeech($extractedAudioPath, $elevenVoiceId, $stability);
-        } catch (RuntimeException $e) {
-            @unlink($sourceVideoPath);
-            @unlink($extractedAudioPath);
-            fail(502, $e->getMessage());
-        }
-
-        $convertedAudioPath = WORK_DIR . $jobId . '.converted.mp3';
-        file_put_contents($convertedAudioPath, $result['audio_bytes']);
-
-        applyPitchShift($convertedAudioPath, $pitch);
-
-        // ---- re-mux converted audio back onto the original video --------
-
-        $resultVideoPath = RESULT_DIR . $jobId . '.mp4';
-
-        if (!remuxAudioOntoVideo($sourceVideoPath, $convertedAudioPath, $resultVideoPath)) {
-            @unlink($sourceVideoPath);
-            @unlink($extractedAudioPath);
-            @unlink($convertedAudioPath);
-            fail(500, 'Could not combine the new audio with the video.');
-        }
-
-        // ---- cleanup work files (keep original upload + final result) ---
-
-        @unlink($extractedAudioPath);
-        @unlink($convertedAudioPath);
-
-        $credits = $estimatedCredits;
-
-        // ---- deduct credits + record the job -----------------------------
-
-        $conn->begin_transaction();
-
-        $lockStmt = $conn->prepare('SELECT credits_balance FROM users WHERE id = ? FOR UPDATE');
-        $lockStmt->bind_param('i', $userId);
-        $lockStmt->execute();
-        $currentBalance = (float) $lockStmt->get_result()->fetch_assoc()['credits_balance'];
-        $lockStmt->close();
-
-        if ($currentBalance < $credits) {
-            $conn->rollback();
-            @unlink($resultVideoPath);
-            fail(402, 'Not enough credits to complete this transformation.');
-        }
-
-        $deductStmt = $conn->prepare('UPDATE users SET credits_balance = credits_balance - ? WHERE id = ?');
-        $deductStmt->bind_param('di', $credits, $userId);
-        $deductStmt->execute();
-        $deductStmt->close();
+        // ---- create the job row in 'processing' state ------------------
 
         $insertStmt = $conn->prepare("
             INSERT INTO voice_jobs (
                 id, user_id, status, progress, status_message,
                 source_audio_path, voice_mode, voice_id, clone_reference_id,
                 quality, pitch, stability, credits_estimated, credits_charged,
-                result_audio_path, media_mode, completed_at
-            ) VALUES (?, ?, 'completed', 100, 'Voice transformation completed.',
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'video', NOW())
+                result_audio_path, media_mode
+            ) VALUES (?, ?, 'processing', 5, 'Starting...',
+                ?, ?, ?, ?, ?, ?, ?, ?, 0, '', 'video')
         ");
 
         $insertStmt->bind_param(
-            'sisssssssiis',
+            'sisssssssi',
             $jobId, $userId, $sourceVideoPath, $voiceMode, $voiceId,
             $cloneReferenceId, $quality, $pitch, $stability,
-            $estimatedCredits, $credits, $resultVideoPath
+            $estimatedCredits
         );
-        $insertStmt->execute();
+
+        if (!$insertStmt->execute()) {
+            $insertStmt->close();
+            @unlink($sourceVideoPath);
+            fail(500, 'Could not create the job.');
+        }
+
         $insertStmt->close();
-
-        $conn->commit();
-
-        $newBalance = $currentBalance - $credits;
         $conn->close();
+
+        // ---- start the background worker --------------------------------
+
+        $command = 'nohup '
+            . escapeshellarg(PHP_BINARY) . ' '
+            . escapeshellarg(__DIR__ . '/process-video-job.php') . ' '
+            . escapeshellarg($jobId)
+            . ' > /dev/null 2>&1 &';
+
+        exec($command);
 
         echo json_encode([
             'job_id' => $jobId,
-            'status' => 'completed',
-            'progress' => 100,
-            'message' => 'Voice transformation completed.',
+            'status' => 'processing',
+            'progress' => 5,
+            'message' => 'Starting...',
             'media_mode' => 'video',
-            'result_url' => '/backend/voice/transform.php?action=download&job_id=' . urlencode($jobId),
-            'credits_charged' => $credits,
-            'credits_balance' => $newBalance,
         ]);
         exit;
     }
 
     // ===================================================================
-    // AUDIO MODE (unchanged from before)
+    // AUDIO MODE (synchronous, unchanged)
     // ===================================================================
 
     if (!isset($_FILES['source_audio'])) {
@@ -589,8 +317,6 @@ if ($action === 'submit') {
         fail(402, 'Not enough credits for this transformation.');
     }
 
-    // ---- call ElevenLabs --------------------------------------------
-
     try {
         $result = elevenLabsSpeechToSpeech($sourcePath, $elevenVoiceId, $stability);
     } catch (RuntimeException $e) {
@@ -603,8 +329,6 @@ if ($action === 'submit') {
     applyPitchShift($resultPath, $pitch);
 
     $credits = $estimatedCredits;
-
-    // ---- deduct credits + record the job -----------------------------
 
     $conn->begin_transaction();
 
@@ -659,6 +383,57 @@ if ($action === 'submit') {
         'credits_charged' => $credits,
         'credits_balance' => $newBalance,
     ]);
+    exit;
+}
+
+// =======================================================================
+// ACTION: status (polled by the browser for video jobs)
+// =======================================================================
+
+if ($action === 'status') {
+
+    $jobId = $_GET['job_id'] ?? '';
+
+    $stmt = $conn->prepare("
+        SELECT status, progress, status_message, media_mode, credits_charged
+        FROM voice_jobs
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+    ");
+    $stmt->bind_param('si', $jobId, $userId);
+    $stmt->execute();
+    $job = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$job) {
+        $conn->close();
+        fail(404, 'Job not found.');
+    }
+
+    $response = [
+        'job_id' => $jobId,
+        'status' => $job['status'],
+        'progress' => (int) $job['progress'],
+        'message' => $job['status_message'],
+        'media_mode' => $job['media_mode'],
+    ];
+
+    if ($job['status'] === 'completed') {
+
+        $balStmt = $conn->prepare('SELECT credits_balance FROM users WHERE id = ? LIMIT 1');
+        $balStmt->bind_param('i', $userId);
+        $balStmt->execute();
+        $balance = (float) ($balStmt->get_result()->fetch_assoc()['credits_balance'] ?? 0);
+        $balStmt->close();
+
+        $response['result_url'] = '/backend/voice/transform.php?action=download&job_id=' . urlencode($jobId);
+        $response['credits_charged'] = (int) $job['credits_charged'];
+        $response['credits_balance'] = $balance;
+    }
+
+    $conn->close();
+
+    echo json_encode($response);
     exit;
 }
 
