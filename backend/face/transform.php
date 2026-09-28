@@ -2,16 +2,16 @@
 
 /*
 |--------------------------------------------------------------------------
-| TEMPORARY: surface fatal errors instead of failing silently
+| Error display
 |--------------------------------------------------------------------------
-| Added while diagnosing why transform.php sometimes never reaches its
-| first log line. Once things are confirmed working, these two lines
-| can be removed (or set display_errors back to '0') so raw PHP errors
-| are never shown to end users in production.
+| Never show raw PHP errors to users: they leak paths and any warning
+| printed before the JSON body breaks the browser's JSON.parse().
+| Errors still go to the server error log.
 |--------------------------------------------------------------------------
 */
 error_reporting(E_ALL);
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 session_start();
 
@@ -22,10 +22,8 @@ header('Content-Type: application/json');
 |--------------------------------------------------------------------------
 | Decart API configuration
 |--------------------------------------------------------------------------
-|
 | API key is loaded from the project's .env file (see backend/config/env.php).
 | Never commit the .env file or hardcode the key here.
-|
 |--------------------------------------------------------------------------
 */
 
@@ -42,17 +40,19 @@ $decartEndpoint =
 |--------------------------------------------------------------------------
 | Credits configuration
 |--------------------------------------------------------------------------
-|
 | Every generated second of video costs CREDITS_PER_SECOND credits.
-| Credits are only deducted AFTER a successful transformation, in
-| status.php once the job actually completes.
-|
+| Credits are deducted AFTER a successful transformation, in status.php.
+| Must match CREDITS_PER_SECOND in assets/js/face-studio.js.
 |--------------------------------------------------------------------------
 */
 
 const CREDITS_PER_SECOND = 6;
 
 const MAX_VIDEO_DURATION_SECONDS = 600;
+
+const MAX_VIDEO_BYTES = 10 * 1024 * 1024;
+
+const MAX_REFERENCE_BYTES = 10 * 1024 * 1024;
 
 
 /*
@@ -66,18 +66,27 @@ require_once __DIR__ . '/../config/database.php';
 
 /*
 |--------------------------------------------------------------------------
-| Test logging
+| Logging
+|--------------------------------------------------------------------------
+| TIP: move this file outside the web root (or use error_log()) so it
+| cannot be downloaded, and rotate it so it doesn't grow forever.
 |--------------------------------------------------------------------------
 */
 
 $testLog = __DIR__ . '/transform-test.log';
 
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - transform.php called\n",
-    FILE_APPEND
-);
+function logLine(string $message): void
+{
+    global $testLog;
+
+    file_put_contents(
+        $testLog,
+        date('Y-m-d H:i:s') . ' - ' . $message . "\n",
+        FILE_APPEND
+    );
+}
+
+logLine('transform.php called');
 
 
 /*
@@ -127,22 +136,26 @@ if (
     !isset($_SESSION['user_id'])
 ) {
 
-    file_put_contents(
-        __DIR__ . '/transform-test.log',
-        date('Y-m-d H:i:s') .
-        " - authentication failed\n",
-        FILE_APPEND
-    );
+    logLine('authentication failed');
 
-    jsonResponse(
-        false,
-        'You must be logged in.',
-        401
-    );
+    jsonResponse(false, 'You must be logged in.', 401);
 }
 
-
 $userId = (int) $_SESSION['user_id'];
+
+
+/*
+|--------------------------------------------------------------------------
+| Release the session lock
+|--------------------------------------------------------------------------
+| session_start() locks the session file until the script ends. This
+| request uploads files to Decart and can be slow, which would block the
+| user's status.php polls. We only need the session again at the very end
+| (to store the job), so release it now and reopen it later.
+|--------------------------------------------------------------------------
+*/
+
+session_write_close();
 
 
 /*
@@ -153,20 +166,9 @@ $userId = (int) $_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - invalid method: " .
-        $_SERVER['REQUEST_METHOD'] .
-        "\n",
-        FILE_APPEND
-    );
+    logLine('invalid method: ' . $_SERVER['REQUEST_METHOD']);
 
-    jsonResponse(
-        false,
-        'Invalid request method.',
-        405
-    );
+    jsonResponse(false, 'Invalid request method.', 405);
 }
 
 
@@ -178,51 +180,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 if (!function_exists('curl_init')) {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - cURL extension is not available\n",
-        FILE_APPEND
-    );
+    logLine('cURL extension is not available');
 
-    jsonResponse(
-        false,
-        'PHP cURL extension is not available.',
-        500
-    );
+    jsonResponse(false, 'PHP cURL extension is not available.', 500);
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Log received files
+| Check files were received
 |--------------------------------------------------------------------------
 */
 
-$videoReceived =
-    isset($_FILES['video']) ? 'YES' : 'NO';
-
-$referenceReceived =
-    isset($_FILES['reference']) ? 'YES' : 'NO';
-
-
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - video=" .
-    $videoReceived .
-    " reference=" .
-    $referenceReceived .
-    "\n",
-    FILE_APPEND
+logLine(
+    'video=' . (isset($_FILES['video']) ? 'YES' : 'NO') .
+    ' reference=' . (isset($_FILES['reference']) ? 'YES' : 'NO')
 );
-
-
-/*
-|--------------------------------------------------------------------------
-| Check video
-|--------------------------------------------------------------------------
-*/
 
 if (!isset($_FILES['video'])) {
 
@@ -230,18 +203,9 @@ if (!isset($_FILES['video'])) {
         false,
         'No video file was received by PHP.',
         400,
-        [
-            'video_received' => false
-        ]
+        ['video_received' => false]
     );
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| Check reference image
-|--------------------------------------------------------------------------
-*/
 
 if (!isset($_FILES['reference'])) {
 
@@ -249,12 +213,9 @@ if (!isset($_FILES['reference'])) {
         false,
         'No reference image was received by PHP.',
         400,
-        [
-            'reference_received' => false
-        ]
+        ['reference_received' => false]
     );
 }
-
 
 $video = $_FILES['video'];
 
@@ -294,33 +255,14 @@ $uploadErrors = [
         'A PHP extension stopped the upload.'
 ];
 
-
-/*
-|--------------------------------------------------------------------------
-| Check video upload
-|--------------------------------------------------------------------------
-*/
-
 if ($video['error'] !== UPLOAD_ERR_OK) {
 
     $errorCode = (int) $video['error'];
 
     $message =
-        $uploadErrors[$errorCode]
-        ?? 'Unknown video upload error.';
+        $uploadErrors[$errorCode] ?? 'Unknown video upload error.';
 
-
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - VIDEO ERROR CODE: " .
-        $errorCode .
-        " - " .
-        $message .
-        "\n",
-        FILE_APPEND
-    );
-
+    logLine("VIDEO ERROR CODE: {$errorCode} - {$message}");
 
     jsonResponse(
         false,
@@ -333,33 +275,14 @@ if ($video['error'] !== UPLOAD_ERR_OK) {
     );
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Check reference upload
-|--------------------------------------------------------------------------
-*/
-
 if ($reference['error'] !== UPLOAD_ERR_OK) {
 
     $errorCode = (int) $reference['error'];
 
     $message =
-        $uploadErrors[$errorCode]
-        ?? 'Unknown reference upload error.';
+        $uploadErrors[$errorCode] ?? 'Unknown reference upload error.';
 
-
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - REFERENCE ERROR CODE: " .
-        $errorCode .
-        " - " .
-        $message .
-        "\n",
-        FILE_APPEND
-    );
-
+    logLine("REFERENCE ERROR CODE: {$errorCode} - {$message}");
 
     jsonResponse(
         false,
@@ -372,190 +295,85 @@ if ($reference['error'] !== UPLOAD_ERR_OK) {
     );
 }
 
+if (
+    !is_uploaded_file($video['tmp_name']) ||
+    !is_uploaded_file($reference['tmp_name'])
+) {
 
-/*
-|--------------------------------------------------------------------------
-| Maximum file sizes
-|--------------------------------------------------------------------------
-*/
+    logLine('is_uploaded_file() check failed');
 
-$maxVideoSize =
-    10 * 1024 * 1024;
-
-$maxReferenceSize =
-    10 * 1024 * 1024;
-
-
-/*
-|--------------------------------------------------------------------------
-| Video size check
-|--------------------------------------------------------------------------
-*/
-
-if ($video['size'] > $maxVideoSize) {
-
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - video too large: " .
-        $video['size'] .
-        " bytes\n",
-        FILE_APPEND
-    );
-
-
-    jsonResponse(
-        false,
-        'Video must be 10MB or smaller.',
-        400
-    );
+    jsonResponse(false, 'Invalid upload.', 400);
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Reference size check
+| File size checks
 |--------------------------------------------------------------------------
 */
 
-if ($reference['size'] > $maxReferenceSize) {
+if ($video['size'] > MAX_VIDEO_BYTES) {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - reference too large: " .
-        $reference['size'] .
-        " bytes\n",
-        FILE_APPEND
-    );
+    logLine('video too large: ' . $video['size'] . ' bytes');
 
+    jsonResponse(false, 'Video must be 10MB or smaller.', 400);
+}
 
-    jsonResponse(
-        false,
-        'Reference image must be 10MB or smaller.',
-        400
-    );
+if ($reference['size'] > MAX_REFERENCE_BYTES) {
+
+    logLine('reference too large: ' . $reference['size'] . ' bytes');
+
+    jsonResponse(false, 'Reference image must be 10MB or smaller.', 400);
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Allowed video types
+| MIME validation (detected from file contents, not the browser)
 |--------------------------------------------------------------------------
 */
 
 $allowedVideoTypes = [
-
     'video/mp4',
-
     'video/quicktime',
-
     'video/webm'
 ];
 
-
-/*
-|--------------------------------------------------------------------------
-| Allowed reference types
-|--------------------------------------------------------------------------
-*/
-
 $allowedReferenceTypes = [
-
     'image/jpeg',
-
     'image/png',
-
     'image/webp'
 ];
 
-
-/*
-|--------------------------------------------------------------------------
-| Browser-reported MIME types
-|--------------------------------------------------------------------------
-*/
+$finfo = new finfo(FILEINFO_MIME_TYPE);
 
 $videoMime =
-    $video['type'] ?? '';
+    (string) $finfo->file($video['tmp_name']);
 
 $referenceMime =
-    $reference['type'] ?? '';
+    (string) $finfo->file($reference['tmp_name']);
 
-
-/*
-|--------------------------------------------------------------------------
-| Log file information
-|--------------------------------------------------------------------------
-*/
-
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - video size=" .
-    $video['size'] .
-    " bytes, mime=" .
-    $videoMime .
-    "\n",
-    FILE_APPEND
+logLine(
+    "video size={$video['size']} bytes, detected mime={$videoMime}"
 );
 
-
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - reference size=" .
-    $reference['size'] .
-    " bytes, mime=" .
-    $referenceMime .
-    "\n",
-    FILE_APPEND
+logLine(
+    "reference size={$reference['size']} bytes, detected mime={$referenceMime}"
 );
 
+if (!in_array($videoMime, $allowedVideoTypes, true)) {
 
-/*
-|--------------------------------------------------------------------------
-| Validate video MIME
-|--------------------------------------------------------------------------
-*/
-
-if (!in_array(
-    $videoMime,
-    $allowedVideoTypes,
-    true
-)) {
-
-    jsonResponse(
-        false,
-        'Unsupported video format.',
-        400,
-        [
-            'detected_type' => $videoMime
-        ]
-    );
+    jsonResponse(false, 'Unsupported video format.', 400);
 }
 
+if (!in_array($referenceMime, $allowedReferenceTypes, true)) {
 
-/*
-|--------------------------------------------------------------------------
-| Validate reference MIME
-|--------------------------------------------------------------------------
-*/
+    jsonResponse(false, 'Unsupported reference image format.', 400);
+}
 
-if (!in_array(
-    $referenceMime,
-    $allowedReferenceTypes,
-    true
-)) {
+if (@getimagesize($reference['tmp_name']) === false) {
 
-    jsonResponse(
-        false,
-        'Unsupported reference image format.',
-        400,
-        [
-            'detected_type' => $referenceMime
-        ]
-    );
+    jsonResponse(false, 'The reference image could not be read.', 400);
 }
 
 
@@ -563,27 +381,22 @@ if (!in_array(
 |--------------------------------------------------------------------------
 | Quality
 |--------------------------------------------------------------------------
+| NOTE: currently validated but not sent to Decart. Resolution is fixed
+| at 720p below. Map $quality to a resolution here if you want the
+| dropdown to have an effect.
+|--------------------------------------------------------------------------
 */
 
 $quality =
     $_POST['quality'] ?? 'standard';
 
-
 $allowedQualities = [
-
     'standard',
-
     'high',
-
     'ultra'
 ];
 
-
-if (!in_array(
-    $quality,
-    $allowedQualities,
-    true
-)) {
+if (!in_array($quality, $allowedQualities, true)) {
 
     $quality = 'standard';
 }
@@ -591,32 +404,66 @@ if (!in_array(
 
 /*
 |--------------------------------------------------------------------------
-| Video duration (sent by the browser after loadedmetadata)
+| Video duration — measured on the server
 |--------------------------------------------------------------------------
-|
-| This drives the credit estimate. We trust it loosely (it only affects
-| how many credits get charged to the SAME user who uploaded the video),
-| but we still clamp it to a sane range so a bad/missing value can't
-| produce a zero or absurd charge.
-|
+| The browser-supplied duration can be faked to pay less, so we measure
+| it with ffprobe. If ffprobe is not installed we fall back to the
+| browser value (logged) — install ffprobe to close that gap.
 |--------------------------------------------------------------------------
 */
 
+function probeVideoDuration(string $path): ?float
+{
+    if (!function_exists('shell_exec')) {
+        return null;
+    }
+
+    $command =
+        'ffprobe -v error -show_entries format=duration ' .
+        '-of default=noprint_wrappers=1:nokey=1 ' .
+        escapeshellarg($path) .
+        ' 2>/dev/null';
+
+    $output = @shell_exec($command);
+
+    if ($output === null || $output === false) {
+        return null;
+    }
+
+    $value = trim($output);
+
+    if ($value === '' || !is_numeric($value)) {
+        return null;
+    }
+
+    $seconds = (float) $value;
+
+    return ($seconds > 0 && is_finite($seconds))
+        ? $seconds
+        : null;
+}
+
 $durationSeconds =
-    isset($_POST['duration'])
-        ? (float) $_POST['duration']
-        : 0.0;
+    probeVideoDuration($video['tmp_name']);
+
+if ($durationSeconds === null) {
+
+    logLine(
+        'WARNING: ffprobe unavailable, using browser-supplied duration'
+    );
+
+    $durationSeconds =
+        isset($_POST['duration'])
+            ? (float) $_POST['duration']
+            : 0.0;
+}
 
 if (
     !is_finite($durationSeconds) ||
     $durationSeconds <= 0
 ) {
 
-    jsonResponse(
-        false,
-        'Missing or invalid video duration.',
-        400
-    );
+    jsonResponse(false, 'Missing or invalid video duration.', 400);
 }
 
 if ($durationSeconds > MAX_VIDEO_DURATION_SECONDS) {
@@ -638,8 +485,7 @@ if ($durationSeconds > MAX_VIDEO_DURATION_SECONDS) {
 */
 
 $creditsRequired =
-    (int) ceil($durationSeconds) *
-    CREDITS_PER_SECOND;
+    (int) ceil($durationSeconds) * CREDITS_PER_SECOND;
 
 
 /*
@@ -664,33 +510,15 @@ $balanceStmt->close();
 
 if (!$balanceRow) {
 
-    jsonResponse(
-        false,
-        'Could not verify your account.',
-        404
-    );
+    jsonResponse(false, 'Could not verify your account.', 404);
 }
 
 $currentBalance = (float) $balanceRow['credits_balance'];
 
-
-/*
-|--------------------------------------------------------------------------
-| Reject if the user doesn't have enough credits
-|--------------------------------------------------------------------------
-*/
-
 if ($currentBalance < $creditsRequired) {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - insufficient credits. required=" .
-        $creditsRequired .
-        " balance=" .
-        $currentBalance .
-        "\n",
-        FILE_APPEND
+    logLine(
+        "insufficient credits. required={$creditsRequired} balance={$currentBalance}"
     );
 
     jsonResponse(
@@ -713,48 +541,10 @@ if ($currentBalance < $creditsRequired) {
 
 if (trim($decartApiKey) === '') {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - DECART_API_KEY is missing from .env\n",
-        FILE_APPEND
-    );
+    logLine('DECART_API_KEY is missing from .env');
 
-    jsonResponse(
-        false,
-        'Decart API key has not been configured.',
-        500
-    );
+    jsonResponse(false, 'Decart API key has not been configured.', 500);
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| Guard against PHP's own execution timeout
-|--------------------------------------------------------------------------
-|
-| This request should be fast now (just an upload + submission), but if
-| CURLOPT_CONNECTTIMEOUT/CURLOPT_TIMEOUT below end up waiting on a slow
-| or unreachable network, PHP's default max_execution_time (often 30s)
-| can kill the script mid-cURL-call before it ever writes a response.
-| That looks to the browser like a dropped connection ("Could not
-| connect to the AIStudio server"), not like a normal error reply.
-| set_time_limit(0) here just makes sure OUR jsonResponse() calls above
-| are what end the request, not PHP's timer.
-|
-| NOTE: this only protects against PHP's OWN timer. It does NOT protect
-| against a reverse proxy / load balancer / browser killing an idle
-| connection while cURL is still blocked waiting on Decart -- that is
-| why MAX_SUBMIT_ATTEMPTS and the cURL timeouts below were tightened
-| (see "FIX" comment further down). set_time_limit(0) plus a long
-| retry loop is what was causing "Could not connect to the AIStudio
-| server" client-side: PHP itself was happy to keep running for
-| several minutes, but nothing in front of it was.
-|
-|--------------------------------------------------------------------------
-*/
-
-set_time_limit(0);
 
 
 /*
@@ -769,7 +559,6 @@ $videoFile = new CURLFile(
     $video['name']
 );
 
-
 $referenceFile = new CURLFile(
     $reference['tmp_name'],
     $referenceMime,
@@ -781,23 +570,11 @@ $referenceFile = new CURLFile(
 |--------------------------------------------------------------------------
 | Submit job to Decart (Lucy 2.5)
 |--------------------------------------------------------------------------
+| This call only SUBMITS the job. Waiting/downloading happens in
+| status.php, called repeatedly by the browser.
 |
-| Lucy supports:
-|
-| data              = source video
-| prompt            = optional text prompt
-| reference_image   = reference image
-|
-| We now send an explicit text prompt alongside the reference image so
-| Decart performs a STRICT full-look match to the reference: face, hair,
-| facial expression, clothing, and any accessories (caps, glasses, etc.)
-| shown in the reference image. The video's own lighting, background,
-| body pose, and motion are preserved.
-|
-| IMPORTANT: this call only *submits* the job. It does NOT wait for the
-| job to finish, and it does NOT download the result. Waiting/downloading
-| happens in status.php, called repeatedly by the browser.
-|
+| Prompt: replace face, hair, skin and expression with the reference;
+| keep the original clothing and all other objects (phones, props).
 |--------------------------------------------------------------------------
 */
 
@@ -807,7 +584,7 @@ $postFields = [
         $videoFile,
 
     'prompt' =>
-        'Replace the face, hair, facial expression, and clothing with an exact match to the person in the reference image, including any accessories such as caps, hats, or glasses shown in the reference. Track and preserve, matching the original video exactly: hand and finger position and sharpness, hair swing and momentum, mouth and lip movement, eye movement and blinking, smile and facial expressions, head movement, and natural clothing movement and physics. Render every frame sharp and clear with no motion blur, no lag, and no ghosting, even during fast movement. Preserve the video\'s original background, body pose, and motion. Match the video\'s exact color temperature, shadows, and lighting direction and intensity.',
+        'Replace the person\'s face, hair, skin, and facial expression with those of the person in the reference image, including any cap or glasses worn in the reference. Keep the person\'s clothing exactly as it appears in the original video. Also keep every other item and object in the original video unchanged, such as phones, cups, jewelry, bags, and props held or nearby, including how they are held. Preserve the original body pose, hand movement, background, and lighting, and match the original lip movement, blinking, and head motion.',
 
     'reference_image' =>
         $referenceFile,
@@ -816,22 +593,19 @@ $postFields = [
         '720p'
 ];
 
-
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - submitting job to Decart (lucy-2.5), duration=" .
-    $durationSeconds .
-    "s, credits_required=" .
-    $creditsRequired .
-    "\n",
-    FILE_APPEND
+logLine(
+    "submitting job to Decart (lucy-2.5), duration={$durationSeconds}s, credits_required={$creditsRequired}"
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Submit to Decart with a small retry allowance
+| Submit to Decart
+|--------------------------------------------------------------------------
+| Retries ONLY when the connection could not be established at all
+| (nothing was sent, so no duplicate job can exist). A timeout after the
+| upload started is NOT retried: Decart may already have created the job,
+| and a retry would create a second one.
 |--------------------------------------------------------------------------
 */
 
@@ -839,20 +613,19 @@ const MAX_SUBMIT_ATTEMPTS = 2;
 
 $decartResponse = false;
 $curlError = '';
+$curlErrno = 0;
 $httpCode = 0;
+$attempt = 0;
 
 for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
 
-    $ch = curl_init(
-        $decartEndpoint
-    );
+    $ch = curl_init($decartEndpoint);
 
     apply_dns_workaround($ch, 'api.decart.ai');
 
     curl_setopt_array(
         $ch,
         [
-
             CURLOPT_POST =>
                 true,
 
@@ -861,35 +634,30 @@ for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
 
             CURLOPT_HTTPHEADER =>
                 [
-
-                    'x-api-key: ' .
-                    $decartApiKey,
-
+                    'x-api-key: ' . $decartApiKey,
                     'Accept: application/json'
                 ],
 
             CURLOPT_RETURNTRANSFER =>
                 true,
 
+            /* 10MB video + image upload needs more than 20s on a
+               slow link. */
             CURLOPT_TIMEOUT =>
-                20,
+                90,
 
             CURLOPT_CONNECTTIMEOUT =>
                 10
         ]
     );
 
-    $decartResponse =
-        curl_exec($ch);
+    $decartResponse = curl_exec($ch);
 
-    $curlError =
-        curl_error($ch);
+    $curlError = curl_error($ch);
 
-    $httpCode =
-        curl_getinfo(
-            $ch,
-            CURLINFO_HTTP_CODE
-        );
+    $curlErrno = curl_errno($ch);
+
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
     curl_close($ch);
 
@@ -897,179 +665,96 @@ for ($attempt = 1; $attempt <= MAX_SUBMIT_ATTEMPTS; $attempt++) {
         break;
     }
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - Decart submission cURL error (attempt {$attempt}/" .
-        MAX_SUBMIT_ATTEMPTS . "): {$curlError}\n",
-        FILE_APPEND
+    logLine(
+        "Decart submission cURL error (attempt {$attempt}/" .
+        MAX_SUBMIT_ATTEMPTS . "), errno={$curlErrno}: {$curlError}"
     );
 
-    if ($attempt < MAX_SUBMIT_ATTEMPTS) {
-        usleep(500000); // 0.5s
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Check Decart submission cURL error
-|--------------------------------------------------------------------------
-*/
-
-if ($decartResponse === false) {
-
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - Decart submission failed after {$attempt} attempt(s): {$curlError}\n",
-        FILE_APPEND
-    );
-
-    jsonResponse(
-        false,
-        'Could not connect to Decart.',
-        502,
-        [
-            'curl_error' =>
-                $curlError
-        ]
-    );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Decode Decart response
-|--------------------------------------------------------------------------
-*/
-
-$jobData =
-    json_decode(
-        $decartResponse,
+    $safeToRetry = in_array(
+        $curlErrno,
+        [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT],
         true
     );
 
+    if (!$safeToRetry) {
+        break;
+    }
+
+    if ($attempt < MAX_SUBMIT_ATTEMPTS) {
+        usleep(500000);
+    }
+}
+
+if ($decartResponse === false) {
+
+    logLine("Decart submission failed after {$attempt} attempt(s): {$curlError}");
+
+    /* Details stay in the log; don't expose them to the browser. */
+    jsonResponse(false, 'Could not connect to Decart.', 502);
+}
+
 
 /*
 |--------------------------------------------------------------------------
-| Log Decart submission response
+| Decode and check Decart response
 |--------------------------------------------------------------------------
 */
 
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - Decart HTTP status: " .
-    $httpCode .
-    "\n",
-    FILE_APPEND
-);
+$jobData = json_decode($decartResponse, true);
 
+logLine('Decart HTTP status: ' . $httpCode);
 
-/*
-|--------------------------------------------------------------------------
-| Check Decart HTTP response
-|--------------------------------------------------------------------------
-*/
-
-if (
-    $httpCode < 200 ||
-    $httpCode >= 300
-) {
+if ($httpCode < 200 || $httpCode >= 300) {
 
     $errorMessage =
         $jobData['detail']
-        ??
-        $jobData['message']
-        ??
-        'Decart rejected the transformation request.';
-
+        ?? $jobData['message']
+        ?? 'Decart rejected the transformation request.';
 
     if (is_array($errorMessage)) {
 
-        $errorMessage =
-            json_encode(
-                $errorMessage
-            );
+        $errorMessage = json_encode($errorMessage);
     }
 
-
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - Decart submission failed: " .
-        $decartResponse .
-        "\n",
-        FILE_APPEND
-    );
-
+    logLine('Decart submission failed: ' . $decartResponse);
 
     jsonResponse(
         false,
         (string) $errorMessage,
         502,
-        [
-            'decart_http_status' =>
-                $httpCode,
-
-            'decart_response' =>
-                $jobData
-        ]
+        ['decart_http_status' => $httpCode]
     );
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Get job ID
-|--------------------------------------------------------------------------
-*/
-
-$jobId =
-    $jobData['job_id']
-    ?? null;
-
+$jobId = $jobData['job_id'] ?? null;
 
 if (!$jobId) {
 
-    file_put_contents(
-        $testLog,
-        date('Y-m-d H:i:s') .
-        " - Decart response did not contain job_id\n",
-        FILE_APPEND
-    );
+    logLine('Decart response did not contain job_id');
 
-
-    jsonResponse(
-        false,
-        'Decart did not return a job ID.',
-        502,
-        [
-            'decart_response' =>
-                $jobData
-        ]
-    );
+    jsonResponse(false, 'Decart did not return a job ID.', 502);
 }
 
-
-file_put_contents(
-    $testLog,
-    date('Y-m-d H:i:s') .
-    " - Decart job submitted: " .
-    $jobId .
-    "\n",
-    FILE_APPEND
-);
+logLine('Decart job submitted: ' . $jobId);
 
 
 /*
 |--------------------------------------------------------------------------
-| Stash job context in the session
+| Stash job context in the session (reopened after the earlier close)
+|--------------------------------------------------------------------------
+| For stronger guarantees (parallel jobs, double-charge protection),
+| store jobs in a database table instead: unique job_id, user_id,
+| credits_required, charged flag, and charge with
+| UPDATE ... WHERE job_id = ? AND charged = 0 (check affected rows).
 |--------------------------------------------------------------------------
 */
 
-if (!isset($_SESSION['face_jobs']) || !is_array($_SESSION['face_jobs'])) {
+session_start();
+
+if (
+    !isset($_SESSION['face_jobs']) ||
+    !is_array($_SESSION['face_jobs'])
+) {
     $_SESSION['face_jobs'] = [];
 }
 
@@ -1080,6 +765,8 @@ $_SESSION['face_jobs'][$jobId] = [
     'charged' => false,
     'result_url' => null,
 ];
+
+session_write_close();
 
 
 /*
