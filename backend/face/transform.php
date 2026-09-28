@@ -584,7 +584,7 @@ $postFields = [
         $videoFile,
 
     'prompt' =>
-        'Replace the person\'s face, hair, skin, and facial expression with those of the person in the reference image, including any cap or glasses worn in the reference. Keep the person\'s clothing exactly as it appears in the original video. Also keep every other item and object in the original video unchanged, such as phones, cups, jewelry, bags, and props held or nearby, including how they are held. Preserve the original body pose, hand movement, background, and lighting, and match the original lip movement, blinking, and head motion.',
+        'Replace only the person\'s face, hair, and skin with those of the person in the reference image, and keep this identical in every frame from the first to the last, with no drift, flicker, or change in appearance at any point. Keep the person\'s clothing, accessories, jewelry, and every other item and object in the original video exactly as they appear in the source, identical in every frame. Do not copy any clothing, pattern, accessories, or jewelry from the reference image. Preserve the original body pose, hand movement, background, and lighting, and match the original lip movement, blinking, and head motion.',
 
     'reference_image' =>
         $referenceFile,
