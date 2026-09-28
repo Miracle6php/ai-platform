@@ -1611,6 +1611,73 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
+    const POLL_INTERVAL_MS = 2000;
+    const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+
+    function wait(ms) {
+        return new Promise(function (resolve) {
+            setTimeout(resolve, ms);
+        });
+    }
+
+
+    async function pollJobStatus(jobId) {
+
+        const startedAt = Date.now();
+        let consecutiveNetworkErrors = 0;
+
+        while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+
+            await wait(POLL_INTERVAL_MS);
+
+            let data;
+
+            try {
+
+                const response = await fetch(
+                    "backend/voice/transform.php?action=status&job_id=" +
+                    encodeURIComponent(jobId)
+                );
+
+                data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Could not check job status.");
+                }
+
+                consecutiveNetworkErrors = 0;
+
+            } catch (err) {
+
+                // Tolerate a couple of brief network blips before giving up.
+                consecutiveNetworkErrors += 1;
+
+                if (consecutiveNetworkErrors >= 3) {
+                    throw new Error("Lost connection while checking progress.");
+                }
+
+                continue;
+
+            }
+
+            updateProcessing(data.progress || 0, data.message || "");
+
+            if (data.status === "completed") {
+                return data;
+            }
+
+            if (data.status === "failed") {
+                throw new Error(data.message || "The transformation failed.");
+            }
+
+        }
+
+        throw new Error("This is taking longer than expected. Please try again.");
+
+    }
+
+
     async function submitVoiceJob() {
 
         processingValue = 0;
@@ -1654,11 +1721,26 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             stopIndeterminateProgress();
-            updateProcessing(100, "Voice transformation completed.");
-            handleJobCompleted(data);
+
+            if (data.status === "processing" && data.job_id) {
+
+                // Video jobs run in the background — poll for progress.
+                const finished = await pollJobStatus(data.job_id);
+
+                updateProcessing(100, "Voice transformation completed.");
+                handleJobCompleted(finished);
+
+            } else {
+
+                // Audio jobs finish inside the submit request itself.
+                updateProcessing(100, "Voice transformation completed.");
+                handleJobCompleted(data);
+
+            }
 
         } catch (err) {
 
+            stopIndeterminateProgress();
             showToast(err.message || "Something went wrong during transformation.");
             resetToIdleAfterError();
 
