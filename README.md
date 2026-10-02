@@ -9,17 +9,17 @@ A full-stack web platform for AI face transformation, voice conversion and live 
 ## Screenshots
 
 
-![Landing page](landing.jpg)
+![Landing page](Screenshot_20261002_070113_Chrome.jpg)
 
 
 
 
-![Face Studio](face-studio.jpg)
+![Dashboard](Screenshot_20261002_070138_Chrome.jpg)
 
 
 
 
-![Dashboard](dashboard.jpg)
+![Face Studio](Screenshot_20261002_070153_Chrome.jpg)
 
 
 
@@ -55,9 +55,9 @@ A full-stack web platform for AI face transformation, voice conversion and live 
 ## Run Locally
 1. Clone the repo:
    `git clone https://github.com/Miracle6php/ai-platform.git`
-2. Create your environment config and add your own API keys for Decart, ElevenLabs and Paystack. [list the variable names you use]
+2. Create your environment config and add your own API keys for Decart, ElevenLabs and Paystack.
 3. Set up the database using the files in `sql/`.
-4. Start the app: [your start command, e.g. `./start.sh`]
+4. Start the app with `./start.sh`.
 
 > Never commit real API keys. Keep them in environment variables.
 
@@ -66,4 +66,3 @@ AIStudio is for creative and entertainment use. Transformation should only be us
 
 ## Author
 **Miracle Ogbobe**, web developer based in Nigeria.
-[Your LinkedIn link]
